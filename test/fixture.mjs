@@ -10,6 +10,7 @@ import {
   consistentOutcome,
 } from "../dist/protocol.js";
 
+// Public synthetic values accepted only by the in-memory reference service.
 export const TOKEN = "ntapi_lst_reference_only_0123456789";
 export const SECRET = "synthetic_fixture_secret_never_use_in_production";
 export async function server(handler) {
@@ -40,7 +41,7 @@ export function event(
   overrides = {},
 ) {
   const timestamp = Math.floor(Date.now() / 1000);
-  // The reference service owns signing. No signing primitive exists in src/.
+  // The reference service creates synthetic signatures; the client only forwards them.
   const signature = createHmac("sha256", SECRET)
     .update(Buffer.from(`${timestamp}.`))
     .update(body)

@@ -60,7 +60,7 @@ test("scope digest canonicalizes localhost without exposing route", async () => 
     p.sha256("http://127.0.0.1:3000/webhook"),
   );
 });
-for (const options of [
+for (const [caseIndex, options] of [
   ["--api-url", "http://example.com"],
   ["--api-url", "http://169.254.169.254", "--allow-loopback-api"],
   ["--api-url", "https://u:p@example.com"],
@@ -72,8 +72,8 @@ for (const options of [
   ["--poll-wait-ms", "10001"],
   ["--backoff-ms", "999999"],
   ["--token", TOKEN, "--token-file", "file"],
-])
-  test(`reject invalid options ${options[0]} ${options[1] ?? ""}`, async () => {
+].entries())
+  test(`reject invalid options ${options[0]} (case ${caseIndex + 1})`, async () => {
     await assert.rejects(
       configuration([...args, ...options], { NTAPI_LISTENER_TOKEN: TOKEN }),
     );

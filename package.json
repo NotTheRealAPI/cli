@@ -11,9 +11,14 @@
     "./protocol": "./dist/protocol.js"
   },
   "files": [
-    "dist",
-    "docs",
+    "dist/*.js",
+    "dist/*.d.ts",
+    "docs/listener-protocol-v1.md",
+    "docs/security.md",
+    "docs/protocol-v1.schema.json",
+    "docs/fixtures/v1.json",
     "README.md",
+    "CONTRIBUTING.md",
     "LICENSE",
     "SECURITY.md"
   ],

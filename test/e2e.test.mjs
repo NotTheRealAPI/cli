@@ -209,7 +209,7 @@ for (const [name, mutate] of [
     "oversized encoded body",
     (x) => ({ ...x, bodyBase64: "A".repeat(1_398_108) }),
   ],
-  ["internal fields", (x) => ({ ...x, internalDbId: "private" })],
+  ["unknown fields", (x) => ({ ...x, unexpectedField: "example" })],
 ])
   test(`reject incompatible envelope ${name}`, async (t) => {
     const f = await setup(t, (_req, res) => res.end(), {

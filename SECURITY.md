@@ -1,7 +1,7 @@
 # Security policy
 
-This is a development candidate. Use GitHub's **Report a vulnerability** / private advisory feature if enabled on this repository. If unavailable, ask a maintainer for a private reporting channel in an issue without exploit details or sensitive data. No unverified security email address is advertised.
+Report vulnerabilities through GitHub's **Report a vulnerability** feature when available. If it is unavailable, ask a maintainer for a private contact channel without posting exploit details or sensitive data in a public issue.
 
-Include affected version, impact and a minimal synthetic reproduction. Never include credentials, private SaaS code or provider secrets. Revoke exposed credentials with their issuer. This CLI has no hosted revocation command.
+Include the affected version, expected impact and a minimal reproduction using synthetic data. Do not include credentials, personal information or provider signing secrets. Revoke exposed credentials with their issuer; removing them from a file does not remove them from Git history.
 
-Maintainers should assess fixes before hosted use or publication. See [the threat model](docs/security.md).
+See the [security model](docs/security.md) for token handling, loopback restrictions and delivery limitations.

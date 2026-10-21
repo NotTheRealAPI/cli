@@ -34,6 +34,20 @@ try {
       /^(src|test|scripts|node_modules|\.github)\//.test(x.path),
     ),
   );
+  const pkg = JSON.parse(
+    await readFile(path.join(root, "package.json"), "utf8"),
+  );
+  const publicFiles = new Set([
+    "package.json",
+    ...pkg.files.filter((name) => !name.includes("*")),
+  ]);
+  for (const entry of listing.files) {
+    assert.ok(
+      publicFiles.has(entry.path) ||
+        /^dist\/[a-z]+\.(?:js|d\.ts)$/.test(entry.path),
+      `Unexpected package file: ${entry.path}`,
+    );
+  }
   await writeManifest(listing);
   npm(
     ["ci", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"],

@@ -1,17 +1,35 @@
 # Security and privacy
 
-The CLI trusts the authenticated service to choose synthetic events within a scope, but treats every envelope, header and body as untrusted input. Threats include stolen tokens, confused scope, DNS rebinding/SSRF, proxies, malicious payloads, local response secrets, redirects, duplicate effects and stale claims. A process already running as the developer can inspect memory/environment or impersonate a local server; this package provides no OS isolation.
+## Trust boundaries
 
-Only literal localhost/127.0.0.1/[::1] targets pass configuration. Localhost is pinned numerically to IPv4 without DNS; IPv6 is explicit. LAN/metadata/public addresses, alternate integer/octal/mapped IP spellings, credentials, fragments and other schemes fail. Native HTTP(S) has no proxy environment handling, redirects, body serializers or transparent decompression. No listener binds publicly. HTTPS verifies numerical certificate identity; TLS bypass configuration is refused. A custom cloud origin is an explicit trust decision: never give a token to an untrusted origin. The reference API's HTTP escape hatch remains loopback-only.
+The CLI accepts events from an authenticated listener service and treats envelopes, headers and body bytes as untrusted input. Relevant threats include stolen tokens, scope confusion, SSRF, DNS rebinding, proxy routing, malicious payloads, response-data leaks, redirects, duplicate effects and stale claims.
 
-The server cannot supply the destination. Before forwarding, the CLI checks canonical Base64, count and SHA-256. Only three allowed provider headers can pass; duplicate/unsafe/unexpected names fail. Transport metadata is generated locally, Content-Length recalculated and original signature value retained. Bodies remain opaque bytes, including binary/empty. The local handler independently verifies the separately supplied **synthetic** signing secret and deduplicates event ID. No real provider secret belongs in CLI credentials.
+Only literal `localhost`, `127.0.0.1`, and `[::1]` forwarding targets are accepted. Localhost is converted to numerical IPv4 without a DNS lookup; IPv6 is explicit. LAN, metadata and public addresses, alternate integer/octal/mapped IP spellings, URL credentials, fragments and other schemes are rejected. The service cannot supply or change the destination.
 
-Limits: 1 MiB decoded payload, 1,450,000 cloud JSON bytes, 16 KiB parsed response headers, 8192 characters per provider value, 64 KiB observed local response, one active claim, 256 ACK tombstones/session, 30-second total deadlines and capped retries. Oversized/incomplete local responses are uncertain. All local response content is discarded; only status/counts/timing/completeness/enumerated errors leave the machine. Arbitrary secret content cannot be rigorously regex-redacted. No telemetry, payload-debug mode or automatic captures exist.
+Native HTTP(S) requests do not use proxy environment variables, follow redirects, serialize the local request body or transparently decompress responses. The CLI opens no inbound listener. HTTPS validates the numerical host's certificate identity, and TLS bypass configuration is rejected. A custom API origin is a trust decision: only send a token to the service that issued it. HTTP API access requires an explicit loopback-only option.
 
-Environment tokens are ephemeral and should be cleared. POSIX token files use no-follow descriptor reads plus owner/mode/size checks. Windows rejects files in favor of environment injection. Do not put secrets in arguments/history/Git/screenshots. Output uses explicitly selected validated IDs and enums, excludes exception text/URLs/headers, and includes no bodies/tokens. Event metadata still deserves access controls. Destination hashes reveal guessable routes; they are not anonymization. Protect redirected JSON evidence with restrictive filesystem permissions.
+## Payloads and evidence
 
-No durable ACK spool exists. Crash/cancel after transmission leaves uncertainty; restart cannot replay another session's ACK. The server must fence leases, persist idempotent receipts/evidence, enforce bounded durable retention and independently gate Preview/Production. Scope checks apply to every operation, including close and duplicate ACK. Prefix checks alone never authenticate a grant.
+Before opening a local request, the CLI checks canonical Base64, byte count and SHA-256. It admits only the provider headers specified in the [V1 contract](listener-protocol-v1.md); unexpected names, duplicate names and control characters are rejected. It recomputes Content-Length and preserves the signature value. Bodies remain opaque bytes, including binary and empty bodies.
 
-Review coverage includes socket fidelity, canary leaks, URL/config boundaries, poisoned headers, auth/scope/revocation, ACK/fencing, cancellation, response bounds and injected connection deadline. Residual risks: developer account compromise; user-selected malicious cloud origin; wrong local process on the selected port; host clock skew; side effects committed before response failure; loss of process-memory evidence unless JSON output is captured. Live SaaS authorization/retention/deployment durability are unverified Part 2 obligations.
+The local handler must independently verify the signature using raw bytes and a synthetic test signing secret from the event source. Provider signing secrets are not CLI credentials. Handlers must deduplicate provider event IDs.
 
-Follow [SECURITY.md](../SECURITY.md) for reporting. Never post credentials, payloads or private SaaS details in public issues.
+Limits include a 1 MiB decoded payload, 1,450,000-byte cloud JSON response, 16 KiB parsed response headers, 8192 characters per provider header value, a 64 KiB observed local response, one active claim and 256 cached ACKs per session. Total request deadlines cap at 30 seconds. Oversized or incomplete local responses after transmission are classified as uncertain, not successful.
+
+Local response headers and bodies are discarded before uplink. Evidence contains only status, byte counts, duration, completeness and enumerated errors. Content-based redaction cannot reliably remove arbitrary secrets from excerpts. Normal diagnostics omit full URLs, bodies, signature headers and credentials. No telemetry, payload debug mode or automatic request capture is provided. Event identifiers and other operational metadata can still be sensitive; protect captured output.
+
+## Credentials
+
+Prefer ephemeral environment injection. Environment values can be inspected by processes with sufficient OS privileges and are inherited by children. Clear them after use. Command-line tokens are visible in process listings and can enter shell history.
+
+POSIX token files use no-follow descriptor reads with owner, mode and size checks. Windows rejects token files because POSIX mode bits do not establish Windows ACL protection. There is no automatic credential persistence or keychain integration.
+
+The token prefix only identifies its format. A compatible service must verify scope, expiry and revocation on every operation, including repeated ACKs and session close. The destination digest binds a canonical URL to the token scope; it is not encryption, and guessable routes can be recovered by enumeration.
+
+## Delivery limitations
+
+There is no durable client ACK spool. A crash, timeout or cancellation after transmission may leave a committed handler effect without a confirmed ACK. Restarting cannot replay a previous process's ACK, and delivery can occur again. Service-side fencing and idempotency do not replace handler deduplication. The service owns retention, retry limits and terminal expiry; the CLI provides no global retention guarantee.
+
+The CLI does not isolate processes running as the developer, authenticate ownership of a loopback port or compensate for clock skew. A local process can impersonate the handler, and a user-selected malicious API can receive its configured token. Keep the host secure, select trusted service origins, synchronize the clock and protect local evidence files.
+
+Follow [SECURITY.md](../SECURITY.md) to report a vulnerability.
