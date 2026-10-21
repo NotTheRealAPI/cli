@@ -1,0 +1,55 @@
+{
+  "name": "@nottherealapi/cli",
+  "version": "0.1.0",
+  "description": "Local webhook transport for the proposed NotTheRealAPI listener protocol",
+  "type": "module",
+  "bin": {
+    "nottherealapi": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./protocol": "./dist/protocol.js"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NotTheRealAPI/cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/NotTheRealAPI/cli/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc && node scripts/schema.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepack": "npm run build",
+    "pack:smoke": "node scripts/pack-smoke.mjs",
+    "demo": "npm run build && node scripts/demo.mjs"
+  },
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^22.19.0",
+    "eslint": "^10.13.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.0"
+  }
+}

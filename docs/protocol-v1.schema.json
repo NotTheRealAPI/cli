@@ -1,0 +1,729 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nottherealapi.com/contracts/listener/v1",
+  "$defs": {
+    "ackSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "deliveryId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "attemptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "claimToken": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{16,256}$"
+        },
+        "generation": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "ackKey": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "outcome": {
+          "type": "object",
+          "properties": {
+            "classification": {
+              "type": "string",
+              "enum": [
+                "success",
+                "http_error",
+                "uncertain",
+                "connection_error",
+                "invalid_payload"
+              ]
+            },
+            "status": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 100,
+                  "maximum": 599
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "durationMs": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 120000
+            },
+            "requestBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048576
+            },
+            "responseBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65536
+            },
+            "responseComplete": {
+              "type": "boolean"
+            },
+            "truncated": {
+              "type": "boolean"
+            },
+            "error": {
+              "type": "string",
+              "enum": [
+                "none",
+                "timeout",
+                "aborted",
+                "socket",
+                "response_limit",
+                "validation"
+              ]
+            },
+            "responseHeaders": {
+              "type": "array",
+              "prefixItems": [],
+              "items": false,
+              "maxItems": 0
+            },
+            "responseBody": {
+              "type": "string",
+              "const": ""
+            }
+          },
+          "required": [
+            "classification",
+            "status",
+            "durationMs",
+            "requestBytes",
+            "responseBytes",
+            "responseComplete",
+            "truncated",
+            "error",
+            "responseHeaders",
+            "responseBody"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "deliveryId",
+        "attemptId",
+        "claimToken",
+        "generation",
+        "ackKey",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "claimSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "claim"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "deliveryId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "attemptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "eventId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "eventType": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_.-]{1,128}$"
+        },
+        "claimToken": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{16,256}$"
+        },
+        "generation": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "dispatchAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        },
+        "bodyBase64": {
+          "type": "string",
+          "maxLength": 1398104
+        },
+        "bodySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bodyBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "headers": {
+          "maxItems": 3,
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "string",
+                "maxLength": 8192
+              }
+            ],
+            "items": false,
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "sessionId",
+        "deliveryId",
+        "attemptId",
+        "attempt",
+        "eventId",
+        "eventType",
+        "claimToken",
+        "generation",
+        "expiresAt",
+        "dispatchAt",
+        "bodyBase64",
+        "bodySha256",
+        "bodyBytes",
+        "headers"
+      ],
+      "additionalProperties": false
+    },
+    "closeSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        }
+      },
+      "required": [
+        "version"
+      ],
+      "additionalProperties": false
+    },
+    "closedSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "closed": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "version",
+        "closed"
+      ],
+      "additionalProperties": false
+    },
+    "errorSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "code": {
+          "type": "string",
+          "enum": [
+            "unauthorized",
+            "forbidden",
+            "not_found",
+            "session_conflict",
+            "stale_claim",
+            "session_expired",
+            "claim_expired",
+            "rate_limited",
+            "unavailable",
+            "version_mismatch"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    "idleSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "idle"
+        },
+        "retryAfterMs": {
+          "type": "integer",
+          "minimum": 250,
+          "maximum": 30000
+        }
+      },
+      "required": [
+        "version",
+        "kind",
+        "retryAfterMs"
+      ],
+      "additionalProperties": false
+    },
+    "outcomeSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": [
+            "success",
+            "http_error",
+            "uncertain",
+            "connection_error",
+            "invalid_payload"
+          ]
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 599
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "durationMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 120000
+        },
+        "requestBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "responseBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "responseComplete": {
+          "type": "boolean"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "error": {
+          "type": "string",
+          "enum": [
+            "none",
+            "timeout",
+            "aborted",
+            "socket",
+            "response_limit",
+            "validation"
+          ]
+        },
+        "responseHeaders": {
+          "type": "array",
+          "prefixItems": [],
+          "items": false,
+          "maxItems": 0
+        },
+        "responseBody": {
+          "type": "string",
+          "const": ""
+        }
+      },
+      "required": [
+        "classification",
+        "status",
+        "durationMs",
+        "requestBytes",
+        "responseBytes",
+        "responseComplete",
+        "truncated",
+        "error",
+        "responseHeaders",
+        "responseBody"
+      ],
+      "additionalProperties": false
+    },
+    "pollResponseSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "const": "ntapi.listener.v1"
+            },
+            "kind": {
+              "type": "string",
+              "const": "claim"
+            },
+            "sessionId": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "deliveryId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "attemptId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "attempt": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "eventId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "eventType": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_.-]{1,128}$"
+            },
+            "claimToken": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{16,256}$"
+            },
+            "generation": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            "dispatchAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            "bodyBase64": {
+              "type": "string",
+              "maxLength": 1398104
+            },
+            "bodySha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "bodyBytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048576
+            },
+            "headers": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  {
+                    "type": "string",
+                    "maxLength": 8192
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              }
+            }
+          },
+          "required": [
+            "version",
+            "kind",
+            "sessionId",
+            "deliveryId",
+            "attemptId",
+            "attempt",
+            "eventId",
+            "eventType",
+            "claimToken",
+            "generation",
+            "expiresAt",
+            "dispatchAt",
+            "bodyBase64",
+            "bodySha256",
+            "bodyBytes",
+            "headers"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "string",
+              "const": "ntapi.listener.v1"
+            },
+            "kind": {
+              "type": "string",
+              "const": "idle"
+            },
+            "retryAfterMs": {
+              "type": "integer",
+              "minimum": 250,
+              "maximum": 30000
+            }
+          },
+          "required": [
+            "version",
+            "kind",
+            "retryAfterMs"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "pollSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "waitMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "version",
+        "waitMs"
+      ],
+      "additionalProperties": false
+    },
+    "receiptSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "ackKey": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "receipt": {
+          "type": "string",
+          "const": "recorded"
+        }
+      },
+      "required": [
+        "version",
+        "ackKey",
+        "receipt"
+      ],
+      "additionalProperties": false
+    },
+    "registerSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "environment": {
+              "type": "string",
+              "enum": [
+                "preview",
+                "production"
+              ]
+            },
+            "destination": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "module",
+            "environment",
+            "destination"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "scopeSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,128}$"
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "preview",
+            "production"
+          ]
+        },
+        "destination": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "module",
+        "environment",
+        "destination"
+      ],
+      "additionalProperties": false
+    },
+    "sessionSchema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "const": "ntapi.listener.v1"
+        },
+        "sessionId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+        },
+        "scope": {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,128}$"
+            },
+            "environment": {
+              "type": "string",
+              "enum": [
+                "preview",
+                "production"
+              ]
+            },
+            "destination": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "module",
+            "environment",
+            "destination"
+          ],
+          "additionalProperties": false
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "scope",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
