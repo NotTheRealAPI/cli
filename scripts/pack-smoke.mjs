@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -33,16 +34,9 @@ try {
       /^(src|test|scripts|node_modules|\.github)\//.test(x.path),
     ),
   );
-  await writeManifest();
+  await writeManifest(listing);
   npm(
-    [
-      "install",
-      "--offline",
-      "--ignore-scripts",
-      "--no-audit",
-      "--no-fund",
-      path.join(directory, listing.filename),
-    ],
+    ["ci", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"],
     directory,
   );
   const metadata = JSON.parse(
@@ -75,10 +69,49 @@ async function cleanup(directory) {
     throw new Error("Unexpected cleanup target");
   await rm(resolved, { recursive: true, force: true });
 }
-async function writeManifest() {
-  const { writeFile } = await import("node:fs/promises");
+async function writeManifest(listing) {
+  const pkg = JSON.parse(
+    await readFile(path.join(root, "package.json"), "utf8"),
+  );
+  const sourceLock = JSON.parse(
+    await readFile(path.join(root, "package-lock.json"), "utf8"),
+  );
+  const archive = pathToFileURL(path.join(directory, listing.filename)).href;
+  const manifest = {
+    name: "pack-consumer",
+    version: "1.0.0",
+    private: true,
+    dependencies: { [pkg.name]: archive },
+  };
+  // npm ci caches tarballs, not registry packuments. Carry the locked runtime graph
+  // into the isolated consumer so offline installation needs no hidden metadata cache.
+  const packages = Object.fromEntries(
+    Object.entries(sourceLock.packages).filter(
+      ([name, pkg]) => name && !pkg.dev,
+    ),
+  );
+  packages[""] = manifest;
+  packages[`node_modules/${pkg.name}`] = {
+    version: pkg.version,
+    resolved: archive,
+    integrity: listing.integrity,
+    dependencies: pkg.dependencies,
+    bin: pkg.bin,
+    engines: pkg.engines,
+    license: pkg.license,
+  };
   await writeFile(
     path.join(directory, "package.json"),
-    JSON.stringify({ name: "pack-consumer", private: true }),
+    JSON.stringify(manifest),
+  );
+  await writeFile(
+    path.join(directory, "package-lock.json"),
+    JSON.stringify({
+      name: manifest.name,
+      version: manifest.version,
+      lockfileVersion: 3,
+      requires: true,
+      packages,
+    }),
   );
 }
