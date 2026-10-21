@@ -1,0 +1,23 @@
+# Contributing
+
+Use synthetic data in examples and tests. Do not commit credentials, personal data or third-party confidential material. Read the [protocol specification](docs/listener-protocol-v1.md) and [security model](docs/security.md) before changing transport or authentication behavior.
+
+Requires Node.js 22.13.0+ and npm 10+. Run these checks from the repository root:
+
+```sh
+npm ci --ignore-scripts
+npm test
+npm run lint
+npm run format:check
+npm run demo
+npm run pack:smoke
+npm audit --audit-level=high
+```
+
+Tests and the demo use local loopback sockets and synthetic credentials. Allow loopback connections in your test environment. No hosted service or account credentials are needed. The connection-deadline test injects an unconnected socket; other forwarding tests use real HTTP servers. IPv6 coverage can skip if the OS lacks IPv6. Unix subprocess tests check graceful SIGTERM handling; Windows process termination is checked separately from graceful AbortSignal cancellation.
+
+`npm test` builds the executable, generates `docs/protocol-v1.schema.json`, and runs the tests. Changes to the generated schema must match the documented protocol. Include matching fixture and interoperability updates with any proposed protocol revision; do not silently change V1.
+
+`npm run pack:smoke` requires a preceding build and cached dependencies from `npm ci`. It installs the archive offline in an isolated consumer using the locked runtime dependencies, executes the installed bin, and removes the temporary consumer. CI runs these checks on Windows, macOS and Linux with Node 22.13.0 and 24, with read-only repository permissions and no publishing credentials.
+
+Describe the behavior affected by a pull request and the checks you ran. For vulnerabilities, follow [SECURITY.md](SECURITY.md).
