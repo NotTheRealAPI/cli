@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-22
 
-Initial release candidate for `@nottherealapi/cli`; no npm publication yet.
+Initial release of `@nottherealapi/cli`.
 
 - Listener V1 registration, fenced claims, byte-preserving loopback forwarding, bounded retries, ACK evidence and session close.
 - Optional WebSocket notification hints with 60-second idle safety probes and authoritative HTTPS fallback.

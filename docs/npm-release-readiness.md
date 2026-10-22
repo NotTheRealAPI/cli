@@ -1,6 +1,8 @@
-# npm release readiness — @nottherealapi/cli 0.1.0
+# Historical npm readiness audit — @nottherealapi/cli 0.1.0
 
-Assessed 22 October 2026. **Verdict: NOT READY TO PUBLISH.** Technical validation passes; the owner must confirm the copyright holder, npm scope/account access and security method, then approve the candidate and separately authorise publication. No publication, tag, GitHub release, merge or hosted service validation was performed. Production hosted listeners remain unavailable; CLI publication does not enable them.
+This is archived evidence from the readiness phase, not a live release-status report. Its commit, archive digest and checklist describe the earlier candidate, not the final release artefact. The owner subsequently confirmed retention of `Copyright (c) 2026 NotTheRealAPI` and MIT, npm organisation Owner access and enabled 2FA, and authorised the 0.1.0 publication, matching tag and GitHub release. Those decisions supersede the approval prerequisites below. Follow the [release runbook](npm-release.md); registry verification and the matching GitHub release establish completed publication.
+
+Historical assessment on 22 October 2026: **NOT READY TO PUBLISH at that time**, pending the owner decisions now recorded above. Technical validation passed. No publication, tag, GitHub release, merge or hosted service validation was performed during that readiness phase. Production hosted listeners remain unavailable; CLI publication does not enable them.
 
 ## Exact candidate and archive
 
@@ -94,7 +96,7 @@ Reviewed the entire 39-file candidate tree, release-related history and 94 reach
 - The sole runtime-source edit is Production-focused help text. ACK/retry/fencing, byte fidelity, WebSocket lifecycle, safety probes, idle fallback and V1 schemas are unchanged. MIT and the existing copyright holder wording are retained.
 - Work stayed in the public CLI repository. No private SaaS repository, hosted Preview/Production, deployment platform, database/cache service or customer credential was accessed.
 
-## Remaining publishing checklist
+## Historical checklist at the time of assessment
 
 - [ ] Owner confirms the appropriate copyright name in `LICENSE` (currently `NotTheRealAPI`). No legal entity or personal name was invented. Trademark/name rights are separate from MIT code licensing.
 - [ ] Maintainer confirms npm scope ownership, permission to create/publish `@nottherealapi/cli`, current name/version availability and the preferred account/2FA security method. The read-only local identity check returned `ENEEDAUTH`; package/scope checks were therefore not attempted. No registry auth was altered and no token was requested.
@@ -102,4 +104,4 @@ Reviewed the entire 39-file candidate tree, release-related history and 94 reach
 - [ ] Review this report and the [manual runbook](npm-release.md), approve the exact candidate, and confirm all checks on the eventual release commit.
 - [ ] Separately authorise actual publication of the approved archive. Only then perform registry-integrity checks, clean registry consumer installation, and approved release tagging/GitHub release steps in the runbook.
 
-Technical candidate preparation is complete. Publication remains blocked on these explicit human decisions; no automatic publishing or hosted enablement has been introduced.
+The checklist above is retained as historical evidence; it is superseded by the owner decisions recorded at the top of this document. No automatic publishing or hosted enablement was introduced.
