@@ -105,12 +105,23 @@ test("complete fake cloud -> real socket -> ACK: bytes, signature, scope, no ear
       "disconnected",
       "authenticating",
       "listening",
+      "notifications_fallback",
       "claimed",
       "forwarding",
       "ack_pending",
       "acknowledged",
     ],
   );
+});
+test("explicit preview scope retains HTTP V1 delivery compatibility", async (t) => {
+  const f = await setup(t, (_req, res) => res.end(), {}, [
+    "--environment",
+    "preview",
+  ]);
+  assert.equal(f.config.scope.environment, "preview");
+  assert.equal(f.config.api.href, `${f.remote.url}/`);
+  assert.equal(await f.run(), 0);
+  assert.equal(f.remote.acks.length, 1);
 });
 for (const status of [200, 204, 400, 429, 500, 302])
   test(`truthful local HTTP ${status}, no redirects`, async (t) => {
@@ -424,11 +435,13 @@ test("bounded idle polling and --once idle result", async (t) => {
   assert.equal(f.remote.calls.filter((x) => x.route === "poll").length, 1);
   f.config.maxIdlePolls = 3;
   const waits = [];
+  let now = Date.now();
   const clock = {
-    now: Date.now,
+    now: () => now,
     random: () => 0,
     sleep: async (ms) => {
       waits.push(ms);
+      now += ms;
     },
   };
   assert.equal(

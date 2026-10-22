@@ -118,7 +118,7 @@ export async function configuration(
       throw new SafeError("https_api_required", 2);
     api = loopbackUrl(api.href);
   }
-  const environment = v.environment ?? "preview";
+  const environment = v.environment ?? "production";
   if (environment !== "preview" && environment !== "production")
     throw new SafeError("invalid_environment", 2);
   if (v.token && v["token-file"])

@@ -20,6 +20,7 @@ export default ts.config(
         Buffer: "readonly",
         console: "readonly",
         setTimeout: "readonly",
+        clearTimeout: "readonly",
         URL: "readonly",
         AbortController: "readonly",
       },

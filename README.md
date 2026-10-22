@@ -1,8 +1,8 @@
 # NotTheRealAPI CLI
 
-Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. The CLI receives events through outbound polling, preserves the original body bytes and signature headers, and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
+Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. Optional outbound WebSocket notifications wake HTTPS claims; HTTPS remains authoritative for registration, delivery, ACKs and close. The CLI preserves the original body bytes and signature headers and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
 
-**Availability:** this package is not published on npm. Hosted listener routes are not implemented or verified. The runnable demo and tests use a local reference service for the proposed `ntapi.listener.v1` protocol.
+**Availability:** this package is not published on npm. The CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; CLI protocol support does not enable hosted access. The runnable demo and automated tests use local reference services.
 
 ## Run from source
 
@@ -36,7 +36,16 @@ The package is ESM and includes compiled JavaScript and TypeScript declarations.
 
 ## Connect to a compatible service
 
-The following example assumes a reference service implementing the proposed protocol at `http://127.0.0.1:8787`, a scoped token in `NTAPI_LISTENER_TOKEN`, and your handler at port 3000. The example address is not a service started by this command; use `npm run demo` for a self-contained run.
+For hosted use once listener access is enabled, the following configuration uses the public API origin `https://nottherealapi.com` and Production token scope, with your handler at port 3000. It requires a module and scoped listener token issued by an enabled service; running this command does not enable hosted access:
+
+```sh
+node dist/cli.js listen \
+  --module stripe-payments \
+  --forward-to http://localhost:3000/webhook \
+  --environment production --json
+```
+
+For a local reference service at `http://127.0.0.1:8787`, explicitly permit loopback HTTP. The example address is not a service started by this command; use `npm run demo` for a self-contained run.
 
 ```sh
 node dist/cli.js listen \
@@ -44,15 +53,15 @@ node dist/cli.js listen \
   --forward-to http://localhost:3000/webhook \
   --api-url http://127.0.0.1:8787 \
   --allow-loopback-api \
-  --environment preview \
+  --environment production \
   --once --json
 ```
 
-The built-in API origin is `https://nottherealapi.com`, but it currently has no implemented or verified listener API. Select a compatible service explicitly with `--api-url`. Non-loopback APIs require HTTPS. The `preview` and `production` environment names are protocol scope values, not evidence of an available deployment.
+The built-in API origin is `https://nottherealapi.com`, and token scope defaults to `production`. `--environment` selects token scope; it never changes the API hostname or enables hosted functionality. Select a different authorized API origin with `--api-url`. Non-loopback APIs require HTTPS.
 
 ## Authentication
 
-`nottherealapi auth` explains token configuration. It performs no remote login and stores no credentials. Hosted token issuance and browser login are unavailable.
+`nottherealapi auth` explains token configuration. It performs no remote login and stores no credentials. Hosted authentication requires a scoped listener token from an enabled service; the CLI has no browser login flow. The listener contract permits one active session per user. A competing session is terminal: stop the other listener or wait for its session to expire. The CLI never takes over a competing listener.
 
 Use a dedicated scoped listener token in `NTAPI_LISTENER_TOKEN`. Accepted tokens start with `ntapi_lst_`; the prefix only identifies the token format. A compatible service must verify workspace, environment, module, destination, allowed actions, expiry and revocation on every request. Account-wide keys and provider signing secrets are not listener tokens.
 
@@ -87,8 +96,8 @@ nottherealapi --version
 
 | Option                               | Default / bound                                                          |
 | ------------------------------------ | ------------------------------------------------------------------------ |
-| `--environment preview\|production`  | preview                                                                  |
-| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listener API unavailable             |
+| `--environment production\|preview`  | production; scope selector, does not change API hostname                 |
+| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listeners not currently enabled      |
 | `--allow-loopback-api`               | off; permits HTTP for a loopback reference API                           |
 | `--token-file PATH`, `--token VALUE` | environment fallback; mutually exclusive                                 |
 | `--once`                             | off; process one claim, including failure or uncertain ACK               |
@@ -100,7 +109,11 @@ nottherealapi --version
 | `--backoff-cap-ms N`                 | 30000; 100–60000                                                         |
 | `--json`                             | off; version 1 JSON lines                                                |
 
-An idle `--once` exits 4 after its first bounded poll. Use `--max-idle-polls 10` for ten idle responses or 0 to wait indefinitely. Continuous mode reports handler outcomes and continues listening. Retryable operations have at most eight retries. Retry-After up to 60 seconds overrides the jitter cap; longer delays stop the run. Ctrl+C and SIGTERM cancel requests and sleeps.
+An idle `--once` exits 4 after its first bounded HTTPS probe, including when notifications are healthy. Use `--max-idle-polls 10` for ten idle HTTPS responses or 0 to wait for an event indefinitely. Hints do not count as idle responses. With healthy notifications, later idle probes wait for hints or the 60-second safety check, so a count of ten can take longer than HTTP polling. Continuous mode reports handler outcomes and continues listening. Retryable HTTP operations have at most eight retries. Retry-After up to 60 seconds overrides the jitter cap; longer delays stop the run. Ctrl+C and SIGTERM cancel requests, socket connections and waits.
+
+After registration, each socket obtains a fresh short-lived, single-use ticket over HTTPS. No bearer token is sent in the socket upgrade. A validated `ready` triggers an immediate HTTPS probe to recover work queued before subscription. `resync` hints are coalesced, including during forwarding or ACK retries, and successful ACKs immediately drain more eligible work. There is one local request at a time. Server idle pacing is respected.
+
+While notifications are healthy, routine five-second idle polling stops. A safety probe runs at most 60 seconds after the previous probe when the listener is idle, even if hints are lost. Session renewal continues before expiry. Unsupported notifications, socket/network loss or notification service outages resume bounded HTTPS polling using server idle pacing (250–30000 ms), with automatic notification retries using jitter and a 1–30 second backoff; unsupported routes retry after 60 seconds. Ongoing requests and existing HTTP retry deadlines still apply. Socket loss never replaces a durable session or discards pending ACK evidence. JSON output adds `notifications_ready` and `notifications_fallback` with fixed reasons and retry timing.
 
 | Exit | Meaning                                                             |
 | ---- | ------------------------------------------------------------------- |
