@@ -1,5 +1,7 @@
 # Contributing
 
+Public pull requests are proposals. Maintainers decide what to merge and when to release; submitting a contribution does not grant merge or publishing access. Submit original code or code you have permission to contribute under the project's [MIT licence](LICENSE), and retain required third-party notices. No CLA or DCO signoff is required.
+
 Use synthetic data in examples and tests. Do not commit credentials, personal data or third-party confidential material. Read the [protocol specification](docs/listener-protocol-v1.md) and [security model](docs/security.md) before changing transport or authentication behavior.
 
 Requires Node.js 22.13.0+ and npm 10+. Run these checks from the repository root:
@@ -20,6 +22,6 @@ Tests and the demo use local loopback sockets and synthetic credentials. Allow l
 
 `npm test` builds the executable, generates `docs/protocol-v1.schema.json`, and runs the tests. Changes to the generated schema must match the documented protocol. Include matching fixture and interoperability updates with any proposed protocol revision; do not silently change V1.
 
-`npm run pack:smoke` requires a preceding build and cached dependencies from `npm ci`. It installs the archive offline in an isolated consumer using the locked runtime dependencies, executes the installed bin, and removes the temporary consumer. CI runs these checks on Windows, macOS and Linux with Node 22.13.0 and 24, with read-only repository permissions and no publishing credentials.
+`npm run pack:smoke` requires a preceding build and cached dependencies from `npm ci`. It installs the archive offline in an isolated consumer using the locked runtime dependencies, executes the installed bin and ESM exports, and removes the temporary consumer. Pass `-- --archive /absolute/path/to/package.tgz` to test an existing archive without repacking it. CI runs these checks and the demo on Windows, macOS and Linux with Node 22.13.0 and 24, with read-only repository permissions and no publishing credentials. Keep `@types/node` on major 22 to match the runtime minimum.
 
 Describe the behavior affected by a pull request and the checks you ran. For vulnerabilities, follow [SECURITY.md](SECURITY.md).

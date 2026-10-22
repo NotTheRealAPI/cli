@@ -26,5 +26,6 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: git diff --exit-code -- docs/protocol-v1.schema.json
+      - run: npm run demo
       - run: npm run pack:smoke
       - run: npm audit --audit-level=high

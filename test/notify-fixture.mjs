@@ -122,7 +122,7 @@ export async function notifyingCloud(options = {}) {
   };
 }
 
-export async function notificationSmoke(bin) {
+export async function notificationSmoke(bin, cwd) {
   const raw = Buffer.from(' {"id":"evt_notify_smoke","text":"é🌍"}\r\n\t');
   const item = event(raw);
   let effects = 0;
@@ -171,6 +171,7 @@ export async function notificationSmoke(bin) {
         "--json",
       ],
       {
+        cwd,
         env: {
           ...process.env,
           NTAPI_LISTENER_TOKEN: TOKEN,

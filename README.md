@@ -4,7 +4,19 @@ Forward provider-signed webhook events from a compatible listener service to a f
 
 **Availability:** this package is not published on npm. The CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; CLI protocol support does not enable hosted access. The runnable demo and automated tests use local reference services.
 
-## Run from source
+## Install
+
+Release candidate: **0.1.0**. The following command will be available **only after publication**; it does not work yet:
+
+```sh
+npm install --global @nottherealapi/cli@0.1.0
+nottherealapi --help
+nottherealapi --version
+```
+
+Supported test matrix: Windows, macOS and Linux on Node.js **22.13.0** and **24**. The runtime minimum is Node.js 22.13.0; development requires npm 10+. The package is ESM and includes compiled JavaScript and TypeScript declarations. Installation needs no TypeScript compiler or source checkout.
+
+## Try locally before publication
 
 Requires Node.js **22.13.0+** and npm **10+**. From a checkout of this source:
 
@@ -32,14 +44,14 @@ npm install -g ./nottherealapi-cli-0.1.0.tgz
 nottherealapi --help
 ```
 
-The package is ESM and includes compiled JavaScript and TypeScript declarations. Consumers do not need TypeScript. The [contribution guide](CONTRIBUTING.md) lists development checks.
+The [contribution guide](CONTRIBUTING.md) lists development checks. Maintainers: see the [manual release runbook](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release.md) and [release readiness report](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release-readiness.md) in the repository after this candidate is merged.
 
 ## Connect to a compatible service
 
 For hosted use once listener access is enabled, the following configuration uses the public API origin `https://nottherealapi.com` and Production token scope, with your handler at port 3000. It requires a module and scoped listener token issued by an enabled service; running this command does not enable hosted access:
 
 ```sh
-node dist/cli.js listen \
+nottherealapi listen \
   --module stripe-payments \
   --forward-to http://localhost:3000/webhook \
   --environment production --json
@@ -48,7 +60,7 @@ node dist/cli.js listen \
 For a local reference service at `http://127.0.0.1:8787`, explicitly permit loopback HTTP. The example address is not a service started by this command; use `npm run demo` for a self-contained run.
 
 ```sh
-node dist/cli.js listen \
+nottherealapi listen \
   --module stripe-payments \
   --forward-to http://localhost:3000/webhook \
   --api-url http://127.0.0.1:8787 \
@@ -94,26 +106,21 @@ nottherealapi --help
 nottherealapi --version
 ```
 
-| Option                               | Default / bound                                                          |
-| ------------------------------------ | ------------------------------------------------------------------------ |
-| `--environment production\|preview`  | production; scope selector, does not change API hostname                 |
-| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listeners not currently enabled      |
-| `--allow-loopback-api`               | off; permits HTTP for a loopback reference API                           |
-| `--token-file PATH`, `--token VALUE` | environment fallback; mutually exclusive                                 |
-| `--once`                             | off; process one claim, including failure or uncertain ACK               |
-| `--max-idle-polls N`                 | 1 with `--once`, otherwise 0 (unlimited); max 1,000,000                  |
-| `--request-timeout-ms N`             | 15000; 100–30000                                                         |
-| `--local-timeout-ms N`               | 10000; 50–30000                                                          |
-| `--poll-wait-ms N`                   | up to 10000 below the cloud deadline; 0–min(10000, request timeout − 50) |
-| `--backoff-ms N`                     | 500, reduced if the cap is lower; 100–backoff cap                        |
-| `--backoff-cap-ms N`                 | 30000; 100–60000                                                         |
-| `--json`                             | off; version 1 JSON lines                                                |
+| Option                               | Default / behavior                                                  |
+| ------------------------------------ | ------------------------------------------------------------------- |
+| `--environment production`           | production; scope selector, does not change API hostname            |
+| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listeners not currently enabled |
+| `--allow-loopback-api`               | off; permits HTTP for a loopback reference API                      |
+| `--token-file PATH`, `--token VALUE` | environment fallback; mutually exclusive                            |
+| `--once`                             | off; process one claim, including failure or uncertain ACK          |
+| `--max-idle-polls N`                 | 1 with `--once`, otherwise 0 (unlimited)                            |
+| `--json`                             | off; version 1 JSON lines                                           |
 
-An idle `--once` exits 4 after its first bounded HTTPS probe, including when notifications are healthy. Use `--max-idle-polls 10` for ten idle HTTPS responses or 0 to wait for an event indefinitely. Hints do not count as idle responses. With healthy notifications, later idle probes wait for hints or the 60-second safety check, so a count of ten can take longer than HTTP polling. Continuous mode reports handler outcomes and continues listening. Retryable HTTP operations have at most eight retries. Retry-After up to 60 seconds overrides the jitter cap; longer delays stop the run. Ctrl+C and SIGTERM cancel requests, socket connections and waits.
+An idle `--once` exits 4 after its first bounded HTTPS probe. Use `--max-idle-polls 10` for ten idle HTTPS responses or 0 to wait indefinitely. Hints do not count as idle responses. Continuous mode reports handler outcomes and continues listening. Ctrl+C and SIGTERM cancel requests, sockets and waits. See `--help` for timeout/backoff options; HTTP operations have at most eight retries, and Retry-After above 60 seconds stops the run.
 
-After registration, each socket obtains a fresh short-lived, single-use ticket over HTTPS. No bearer token is sent in the socket upgrade. A validated `ready` triggers an immediate HTTPS probe to recover work queued before subscription. `resync` hints are coalesced, including during forwarding or ACK retries, and successful ACKs immediately drain more eligible work. There is one local request at a time. Server idle pacing is respected.
+After registration, a fresh single-use HTTPS ticket authenticates each socket; no bearer token is sent in its upgrade. WebSocket `ready` and `resync` hints wake HTTPS claims. Hints are coalesced, including during forwarding or ACK retries; confirmed ACKs drain more eligible work. There is one local request at a time, with server idle pacing respected.
 
-While notifications are healthy, routine five-second idle polling stops. A safety probe runs at most 60 seconds after the previous probe when the listener is idle, even if hints are lost. Session renewal continues before expiry. Unsupported notifications, socket/network loss or notification service outages resume bounded HTTPS polling using server idle pacing (250–30000 ms), with automatic notification retries using jitter and a 1–30 second backoff; unsupported routes retry after 60 seconds. Ongoing requests and existing HTTP retry deadlines still apply. Socket loss never replaces a durable session or discards pending ACK evidence. JSON output adds `notifications_ready` and `notifications_fallback` with fixed reasons and retry timing.
+Healthy notifications replace routine idle polling with hints and a **60-second safety probe**. Session renewal continues. Unsupported notifications or socket/network outages resume bounded HTTPS polling and automatic notification retries. In-flight requests and retry deadlines still apply. Socket loss preserves the session and pending ACK evidence. JSON output reports `notifications_ready` or `notifications_fallback`. See the [notification contract](docs/listener-notifications-v1.md) for scheduling details.
 
 | Exit | Meaning                                                             |
 | ---- | ------------------------------------------------------------------- |
@@ -138,3 +145,5 @@ Normal diagnostics omit payloads, signature headers, full URLs and credentials. 
 For connection errors, check the handler's address, port and firewall. For uncertain delivery, inspect handler effects before retrying. Protocol mismatch, denied scope and session conflict stop the run; use a matching service/token or close the other listener.
 
 See the [protocol specification](docs/listener-protocol-v1.md), [security model](docs/security.md), and [vulnerability reporting policy](SECURITY.md).
+
+Code is licensed under [MIT](LICENSE). Trademark and project name rights are separate from the code licence.
