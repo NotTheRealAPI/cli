@@ -2,7 +2,7 @@
 
 Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. Optional outbound WebSocket notifications wake HTTPS claims; HTTPS remains authoritative for registration, delivery, ACKs and close. The CLI preserves the original body bytes and signature headers and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
 
-**Availability:** this package is not published on npm. Hosted listeners and the optional notification protocol are supported in Preview. Production enablement is separate. The runnable demo and automated tests use local reference services for `ntapi.listener.v1` and `ntapi.listener.notify.v1`.
+**Availability:** this package is not published on npm. The CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; CLI protocol support does not enable hosted access. The runnable demo and automated tests use local reference services.
 
 ## Run from source
 
@@ -36,13 +36,13 @@ The package is ESM and includes compiled JavaScript and TypeScript declarations.
 
 ## Connect to a compatible service
 
-For hosted Preview, use an authorized test module and a scoped token in `NTAPI_LISTENER_TOKEN`, with your handler at port 3000:
+For hosted use once listener access is enabled, the following configuration uses the public API origin `https://nottherealapi.com` and Production token scope, with your handler at port 3000. It requires a module and scoped listener token issued by an enabled service; running this command does not enable hosted access:
 
 ```sh
 node dist/cli.js listen \
   --module stripe-payments \
   --forward-to http://localhost:3000/webhook \
-  --environment preview --json
+  --environment production --json
 ```
 
 For a local reference service at `http://127.0.0.1:8787`, explicitly permit loopback HTTP. The example address is not a service started by this command; use `npm run demo` for a self-contained run.
@@ -53,15 +53,15 @@ node dist/cli.js listen \
   --forward-to http://localhost:3000/webhook \
   --api-url http://127.0.0.1:8787 \
   --allow-loopback-api \
-  --environment preview \
+  --environment production \
   --once --json
 ```
 
-The built-in API origin is `https://nottherealapi.com`. Select a different authorized API origin with `--api-url`. Non-loopback APIs require HTTPS. The `preview` and `production` environment names select token scope, not a deployment address or an availability gate.
+The built-in API origin is `https://nottherealapi.com`, and token scope defaults to `production`. `--environment` selects token scope; it never changes the API hostname or enables hosted functionality. Select a different authorized API origin with `--api-url`. Non-loopback APIs require HTTPS.
 
 ## Authentication
 
-`nottherealapi auth` explains token configuration. It performs no remote login and stores no credentials. Obtain an authorized scoped listener token from the service; the CLI has no browser login flow. The service permits one active listener session per user. A competing session is terminal: stop the other listener or wait for its session to expire. The CLI never takes over a competing listener.
+`nottherealapi auth` explains token configuration. It performs no remote login and stores no credentials. Hosted authentication requires a scoped listener token from an enabled service; the CLI has no browser login flow. The listener contract permits one active session per user. A competing session is terminal: stop the other listener or wait for its session to expire. The CLI never takes over a competing listener.
 
 Use a dedicated scoped listener token in `NTAPI_LISTENER_TOKEN`. Accepted tokens start with `ntapi_lst_`; the prefix only identifies the token format. A compatible service must verify workspace, environment, module, destination, allowed actions, expiry and revocation on every request. Account-wide keys and provider signing secrets are not listener tokens.
 
@@ -96,8 +96,8 @@ nottherealapi --version
 
 | Option                               | Default / bound                                                          |
 | ------------------------------------ | ------------------------------------------------------------------------ |
-| `--environment preview\|production`  | preview                                                                  |
-| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted Preview                              |
+| `--environment production\|preview`  | production; scope selector, does not change API hostname                 |
+| `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listeners not currently enabled      |
 | `--allow-loopback-api`               | off; permits HTTP for a loopback reference API                           |
 | `--token-file PATH`, `--token VALUE` | environment fallback; mutually exclusive                                 |
 | `--once`                             | off; process one claim, including failure or uncertain ACK               |

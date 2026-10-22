@@ -1,7 +1,7 @@
 {
   "name": "@nottherealapi/cli",
   "version": "0.1.0",
-  "description": "Local webhook transport with hosted Preview notifications and authoritative HTTPS delivery",
+  "description": "Local webhook transport with optional WebSocket hints and authoritative HTTPS delivery",
   "type": "module",
   "bin": {
     "nottherealapi": "dist/cli.js"

@@ -113,6 +113,16 @@ test("complete fake cloud -> real socket -> ACK: bytes, signature, scope, no ear
     ],
   );
 });
+test("explicit preview scope retains HTTP V1 delivery compatibility", async (t) => {
+  const f = await setup(t, (_req, res) => res.end(), {}, [
+    "--environment",
+    "preview",
+  ]);
+  assert.equal(f.config.scope.environment, "preview");
+  assert.equal(f.config.api.href, `${f.remote.url}/`);
+  assert.equal(await f.run(), 0);
+  assert.equal(f.remote.acks.length, 1);
+});
 for (const status of [200, 204, 400, 429, 500, 302])
   test(`truthful local HTTP ${status}, no redirects`, async (t) => {
     let calls = 0;

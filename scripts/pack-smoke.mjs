@@ -30,6 +30,7 @@ try {
     ]),
   )[0];
   assert.ok(listing.files.some((x) => x.path === "dist/cli.js"));
+  assert.ok(!listing.files.some((x) => /\.(?:pem|key|pfx|p12)$/i.test(x.path)));
   assert.ok(
     !listing.files.some((x) =>
       /^(src|test|scripts|node_modules|\.github)\//.test(x.path),
@@ -67,7 +68,7 @@ try {
   );
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--help"], directory),
-    /hosted listener Preview/,
+    /default production; does not select API host/,
   );
   console.log(
     await notificationSmoke(

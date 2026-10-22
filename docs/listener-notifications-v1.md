@@ -1,6 +1,6 @@
 # Listener notifications V1
 
-Wire version: **`ntapi.listener.notify.v1`**, independent of [HTTP delivery V1](listener-protocol-v1.md). Hosted Preview supports this optional channel. It carries hints only: registration, fenced claims, byte validation, local delivery, ACK retries and durable receipts remain on HTTPS. No webhook data or delivery authority is conveyed by a hint.
+Wire version: **`ntapi.listener.notify.v1`**, independent of [HTTP delivery V1](listener-protocol-v1.md). The CLI implements this optional channel; Production hosted listeners are not currently enabled. It carries hints only: registration, fenced claims, byte validation, local delivery, ACK retries and durable receipts remain on HTTPS. No webhook data or delivery authority is conveyed by a hint.
 
 ## Ticket and socket
 

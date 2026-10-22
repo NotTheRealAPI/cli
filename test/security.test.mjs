@@ -60,6 +60,30 @@ test("scope digest canonicalizes localhost without exposing route", async () => 
     p.sha256("http://127.0.0.1:3000/webhook"),
   );
 });
+test("production is the default scope; explicit environments never select the API hostname", async () => {
+  const defaults = await configuration(args, { NTAPI_LISTENER_TOKEN: TOKEN });
+  assert.equal(defaults.scope.environment, "production");
+  assert.equal(defaults.api.href, "https://nottherealapi.com/");
+  for (const environment of ["production", "preview"]) {
+    const cfg = await configuration([...args, "--environment", environment], {
+      NTAPI_LISTENER_TOKEN: TOKEN,
+    });
+    assert.equal(cfg.scope.environment, environment);
+    assert.equal(cfg.api.href, defaults.api.href);
+    const custom = await configuration(
+      [
+        ...args,
+        "--environment",
+        environment,
+        "--api-url",
+        "https://example.com",
+      ],
+      { NTAPI_LISTENER_TOKEN: TOKEN },
+    );
+    assert.equal(custom.scope.environment, environment);
+    assert.equal(custom.api.href, "https://example.com/");
+  }
+});
 for (const [caseIndex, options] of [
   ["--api-url", "http://example.com"],
   ["--api-url", "http://169.254.169.254", "--allow-loopback-api"],
@@ -193,6 +217,14 @@ for (const arg of ["--help", "--version", "auth"])
     assert.equal(result.status, 0);
     assert.ok(result.stdout.length > 0);
     assert.equal(result.stderr, "");
+    if (arg === "--help") assert.match(result.stdout, /default production/);
+    if (arg !== "--version") {
+      assert.match(
+        result.stdout,
+        /Production listeners are not currently enabled/,
+      );
+      assert.doesNotMatch(result.stdout, /hosted Preview/i);
+    }
   });
 test("argument and authentication errors never echo secrets in stderr/JSON", () => {
   for (const extra of [
