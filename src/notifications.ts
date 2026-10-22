@@ -10,6 +10,7 @@ import type { Timing } from "./listener.js";
 export const NOTIFY_VERSION = "ntapi.listener.notify.v1";
 export const SAFETY_MS = 60_000;
 export const MAX_NOTIFY_FRAME = 1024;
+const TICKET_CLOCK_SKEW_MS = 2000;
 export const ticketSchema = z.strictObject({
   version: z.literal(NOTIFY_VERSION),
   ticket: z.string().regex(/^ntapi_nt_[A-Za-z0-9_-]{43}$/),
@@ -122,7 +123,6 @@ export class Notifications {
     this.wake.trigger();
   }
   private async ticket(session: Session, signal: AbortSignal) {
-    const started = this.clock.now();
     const response = await wireRequest(
       new URL("/listener/notify/v1/tickets", this.api),
       "POST",
@@ -142,6 +142,8 @@ export class Notifications {
       MAX_NOTIFY_FRAME,
       signal,
     );
+    // Capture receipt before parsing; issuance follows request transit/processing.
+    const receivedAt = this.clock.now();
     // Never inspect or surface arbitrary remote error text. Older HTTP-only fixtures may deny this route.
     if (response.status === 401 || response.status === 403) {
       let code: unknown;
@@ -207,8 +209,8 @@ export class Notifications {
     if (!parsed.success) throw new NotifyUnavailable();
     const expires = Date.parse(parsed.data.expiresAt);
     if (
-      expires <= this.clock.now() ||
-      expires > started + 30_000 ||
+      expires <= receivedAt ||
+      expires > receivedAt + 30_000 + TICKET_CLOCK_SKEW_MS ||
       expires > Date.parse(session.expiresAt)
     )
       throw new NotifyUnavailable();
