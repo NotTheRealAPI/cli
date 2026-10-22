@@ -27,7 +27,7 @@ export async function notifyingCloud(options = {}) {
     assert.equal(body.version, version);
     assert.ok(remote.calls.some((x) => x.route === "register"));
     tickets.push(body);
-    if (options.onTicket?.(req, res, body, tickets.length)) return;
+    if (await options.onTicket?.(req, res, body, tickets.length)) return;
     const ticket = `ntapi_nt_${randomBytes(32).toString("base64url")}`;
     minted.add(ticket);
     res.writeHead(200, { "content-type": "application/json" });

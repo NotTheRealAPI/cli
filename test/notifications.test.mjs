@@ -188,11 +188,102 @@ test("executable HTTPS/WSS smoke with trusted loopback certificate", async () =>
   await notificationSmoke("dist/cli.js");
 });
 
+for (const [issuedAfterMs, receivedAfterMs] of [
+  [66, 520],
+  [2500, 3020],
+])
+  test(`ticket minted after request transit (${issuedAfterMs} ms) is accepted relative to response receipt`, async (t) => {
+    const started = Date.parse("2030-01-01T00:00:00.000Z");
+    let now = started,
+      expires;
+    const f = await setup(t, {
+      now: () => now,
+      onTicket: async () => {
+        // Real socket latency plus controlled clocks reproduce the hosted failure exactly.
+        await sleep(10);
+        now = started + issuedAfterMs;
+        return false;
+      },
+      ticketEnvelope: (envelope) => {
+        expires = now + 30_000; // Server issuance follows inbound transit/processing.
+        now = started + receivedAfterMs;
+        return { ...envelope, expiresAt: new Date(expires).toISOString() };
+      },
+    });
+    assert.equal(await f.run(undefined, { ...timing, now: () => now }), 0);
+    assert.equal(expires - (started + 30_000), issuedAfterMs);
+    assert.equal(expires - now, 30_000 + issuedAfterMs - receivedAfterMs);
+    assert.equal(f.remote.upgrades.length, 1);
+    assert.equal(f.remote.envelopes.length, 1);
+    assert.ok(f.lines.some((x) => x.state === "notifications_ready"));
+  });
+
+for (const [name, remainingMs, accepted] of [
+  ["30-second remaining lifetime", 30_000, true],
+  ["two-second clock skew", 32_000, true],
+  ["clock skew beyond two seconds", 32_001, false],
+  ["substantial future expiry", 60_000, false],
+  ["expiry at receipt", 0, false],
+  ["expiry before receipt", -1, false],
+])
+  test(`ticket receipt bound: ${name}`, async (t) => {
+    const now = Date.parse("2030-01-01T00:00:00.000Z");
+    const f = await setup(t, {
+      now: () => now,
+      ticketEnvelope: (envelope) => ({
+        ...envelope,
+        expiresAt: new Date(now + remainingMs).toISOString(),
+      }),
+    });
+    assert.equal(await f.run(undefined, { ...timing, now: () => now }), 0);
+    assert.equal(f.remote.upgrades.length, accepted ? 1 : 0);
+    assert.equal(f.remote.envelopes.length, accepted ? 1 : 0);
+  });
+
+test("ticket receipt tolerance does not extend session expiry", async (t) => {
+  const now = Date.parse("2030-01-01T00:00:00.000Z");
+  const f = await setup(t, {
+    now: () => now,
+    sessionTtlMs: 4000,
+    claimTtlMs: 3000,
+    ticketEnvelope: (envelope) => ({
+      ...envelope,
+      expiresAt: new Date(now + 4001).toISOString(),
+    }),
+  });
+  assert.equal(await f.run(undefined, { ...timing, now: () => now }), 0);
+  assert.equal(f.remote.upgrades.length, 0);
+});
+
+test("ticket expiring during upgrade is never transmitted", async (t) => {
+  let now = Date.parse("2030-01-01T00:00:00.000Z");
+  const f = await setup(t, {
+    now: () => now,
+    ticketEnvelope: (envelope) => ({
+      ...envelope,
+      expiresAt: new Date(now + 100).toISOString(),
+    }),
+    onUpgrade: () => {
+      now += 101;
+      return false;
+    },
+  });
+  assert.equal(await f.run(undefined, { ...timing, now: () => now }), 0);
+  assert.equal(f.remote.upgrades.length, 1);
+  assert.equal(f.remote.envelopes.length, 0);
+  assert.ok(f.lines.some((x) => x.state === "notifications_fallback"));
+});
+
 for (const [name, mutate] of [
   ["wrong ticket version", (x) => ({ ...x, version: "bad" })],
   ["extra ticket key", (x) => ({ ...x, extra: true })],
   ["bad ticket format", (x) => ({ ...x, ticket: "PRIVATE" })],
   ["expired ticket", (x) => ({ ...x, expiresAt: new Date(0).toISOString() })],
+  ["malformed ticket timestamp", (x) => ({ ...x, expiresAt: "invalid" })],
+  [
+    "non-UTC ticket timestamp",
+    (x) => ({ ...x, expiresAt: "2030-01-01T00:00:30+01:00" }),
+  ],
   [
     "excess ticket TTL",
     (x) => ({ ...x, expiresAt: new Date(Date.now() + 60_000).toISOString() }),
