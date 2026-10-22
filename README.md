@@ -2,11 +2,11 @@
 
 Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. Optional outbound WebSocket notifications wake HTTPS claims; HTTPS remains authoritative for registration, delivery, ACKs and close. The CLI preserves the original body bytes and signature headers and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
 
-**Availability:** this package is not published on npm. The CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; CLI protocol support does not enable hosted access. The runnable demo and automated tests use local reference services.
+**Hosted availability:** the CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; installing the CLI does not enable hosted access. The runnable demo and automated tests use local reference services.
 
 ## Install
 
-Release candidate: **0.1.0**. The following command will be available **only after publication**; it does not work yet:
+Install version **0.1.0**:
 
 ```sh
 npm install --global @nottherealapi/cli@0.1.0
@@ -16,7 +16,7 @@ nottherealapi --version
 
 Supported test matrix: Windows, macOS and Linux on Node.js **22.13.0** and **24**. The runtime minimum is Node.js 22.13.0; development requires npm 10+. The package is ESM and includes compiled JavaScript and TypeScript declarations. Installation needs no TypeScript compiler or source checkout.
 
-## Try locally before publication
+## Try the local demo
 
 Requires Node.js **22.13.0+** and npm **10+**. From a checkout of this source:
 
@@ -44,7 +44,7 @@ npm install -g ./nottherealapi-cli-0.1.0.tgz
 nottherealapi --help
 ```
 
-The [contribution guide](CONTRIBUTING.md) lists development checks. Maintainers: see the [manual release runbook](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release.md) and [release readiness report](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release-readiness.md) in the repository after this candidate is merged.
+The [contribution guide](CONTRIBUTING.md) lists development checks. Maintainers: see the [manual release runbook](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release.md) and [historical readiness audit](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release-readiness.md).
 
 ## Connect to a compatible service
 
