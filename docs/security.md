@@ -10,6 +10,8 @@ Native HTTP(S) requests do not use proxy environment variables, follow redirects
 
 ## Payloads and evidence
 
+The optional notification channel carries no webhook data or delivery authority. It uses a short-lived, single-use ticket obtained over authenticated HTTPS after session registration. The WebSocket upgrade contains no credentials or subprotocol. Both channels stay at the configured origin and refuse redirects and TLS downgrades. Notification frames are strictly validated, capped at 1024 bytes and omitted from diagnostics. Lost hints are covered by a 60-second idle safety probe; notification failure resumes authoritative HTTP polling without replacing the session or discarding ACK evidence. Hosted Preview enforces one active session per user; the CLI never evicts another listener.
+
 Before opening a local request, the CLI checks canonical Base64, byte count and SHA-256. It admits only the provider headers specified in the [V1 contract](listener-protocol-v1.md); unexpected names, duplicate names and control characters are rejected. It recomputes Content-Length and preserves the signature value. Bodies remain opaque bytes, including binary and empty bodies.
 
 The local handler must independently verify the signature using raw bytes and a synthetic test signing secret from the event source. Provider signing secrets are not CLI credentials. Handlers must deduplicate provider event IDs.

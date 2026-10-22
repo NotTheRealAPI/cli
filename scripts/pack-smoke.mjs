@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
+import { notificationSmoke } from "../test/notify-fixture.mjs";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run via npm run pack:smoke");
@@ -66,7 +67,12 @@ try {
   );
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--help"], directory),
-    /hosted support pending/,
+    /hosted listener Preview/,
+  );
+  console.log(
+    await notificationSmoke(
+      path.join(directory, "node_modules/@nottherealapi/cli/dist/cli.js"),
+    ),
   );
   console.log(
     `Packed bin installed and executed: ${listing.files.length} files, ${listing.size} bytes (${process.platform}, ${process.version})`,

@@ -105,6 +105,7 @@ test("complete fake cloud -> real socket -> ACK: bytes, signature, scope, no ear
       "disconnected",
       "authenticating",
       "listening",
+      "notifications_fallback",
       "claimed",
       "forwarding",
       "ack_pending",
@@ -424,11 +425,13 @@ test("bounded idle polling and --once idle result", async (t) => {
   assert.equal(f.remote.calls.filter((x) => x.route === "poll").length, 1);
   f.config.maxIdlePolls = 3;
   const waits = [];
+  let now = Date.now();
   const clock = {
-    now: Date.now,
+    now: () => now,
     random: () => 0,
     sleep: async (ms) => {
       waits.push(ms);
+      now += ms;
     },
   };
   assert.equal(

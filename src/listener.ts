@@ -16,6 +16,7 @@ import {
 import { SafeError, type Config } from "./config.js";
 import { forward } from "./transport.js";
 import type { Reporter } from "./output.js";
+import { Notifications, SAFETY_MS, Wakeup } from "./notifications.js";
 
 export interface Timing {
   now(): number;
@@ -75,6 +76,19 @@ export async function listen(
       ),
     );
   report("disconnected");
+  const wake = new Wakeup();
+  const notifications = new Notifications(
+    config.api,
+    config.token,
+    config.requestTimeoutMs,
+    wake,
+    report,
+    clock,
+  );
+  const renewalMargin = config.requestTimeoutMs + config.localTimeoutMs + 2000;
+  let lastProbe = clock.now(),
+    pollDue = clock.now(),
+    nextAllowed = 0;
   const backoff = async (e: unknown, deadline = Infinity) => {
     if (!isRetryable(e) || failures >= 8) throw e;
     const ms = delayFor(
@@ -92,8 +106,7 @@ export async function listen(
     while (!signal.aborted) {
       if (
         !session ||
-        Date.parse(session.expiresAt) - clock.now() <
-          config.requestTimeoutMs + config.localTimeoutMs + 2000
+        Date.parse(session.expiresAt) - clock.now() <= renewalMargin
       ) {
         report("authenticating");
         try {
@@ -123,6 +136,40 @@ export async function listen(
           continue;
         }
       }
+      // Optional establishment must not postpone an overdue safety probe. Reserve
+      // enough time for ticket, upgrade and ready deadlines before attempting it.
+      const connectionBudget =
+        config.requestTimeoutMs + 2 * Math.min(config.requestTimeoutMs, 5000);
+      const connectionDeferred =
+        !notifications.healthy &&
+        clock.now() >= notifications.nextAttempt &&
+        clock.now() - lastProbe + connectionBudget >= SAFETY_MS;
+      if (connectionDeferred) {
+        pollDue = clock.now();
+        wake.trigger();
+      } else await notifications.connectIfDue(session, signal);
+      // Respect server idle pacing even when many hints arrive together. Consume the
+      // latch before the request so hints during forwarding/ACK remain pending.
+      const now = clock.now();
+      const probeAt = Math.max(
+        nextAllowed,
+        Math.min(
+          lastProbe + SAFETY_MS,
+          notifications.healthy ? (wake.pending ? now : Infinity) : pollDue,
+        ),
+      );
+      const next = Math.min(
+        probeAt,
+        Date.parse(session.expiresAt) - renewalMargin,
+        connectionDeferred ? Infinity : notifications.nextAttempt,
+      );
+      if (now < next) {
+        await wake.wait(next - now, signal, clock);
+        continue;
+      }
+      if (now < probeAt) continue;
+      wake.take();
+      lastProbe = clock.now();
       let work;
       try {
         work = await client.poll(sessionId, config.pollWaitMs, signal);
@@ -136,11 +183,14 @@ export async function listen(
           if (++refreshes > 8) throw new SafeError("repeated_session_expiry");
           session = undefined;
           sessionId = newSessionId();
+          notifications.reset();
+          wake.trigger();
           seen.clear();
           await clock.sleep(250, signal);
           continue;
         }
         await backoff(e);
+        wake.trigger();
         continue;
       }
       refreshes = 0;
@@ -149,7 +199,8 @@ export async function listen(
           report("idle_limit");
           return 4;
         }
-        await clock.sleep(work.retryAfterMs, signal);
+        nextAllowed = clock.now() + work.retryAfterMs;
+        pollDue = nextAllowed;
         continue;
       }
       idle = 0;
@@ -276,17 +327,22 @@ export async function listen(
         }
       }
       if (signal.aborted) break;
+      nextAllowed = 0;
+      pollDue = clock.now();
+      wake.trigger();
       if (duplicate) await clock.sleep(250, signal);
       // Rotate bounded sessions after a conservative number of deliveries, retaining tombstones until rotation.
       if (seen.size >= 256) {
         await client.close(sessionId, signal);
         session = undefined;
         sessionId = newSessionId();
+        notifications.reset();
         seen.clear();
       }
     }
     return 130;
   } finally {
+    notifications.stop();
     if (pending)
       report("ack_unconfirmed", {
         attemptId: pending.attemptId,
