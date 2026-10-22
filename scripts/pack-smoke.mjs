@@ -1,14 +1,17 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
+import { parseArgs } from "node:util";
 import { notificationSmoke } from "../test/notify-fixture.mjs";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run via npm run pack:smoke");
 const root = process.cwd();
+const { values } = parseArgs({ options: { archive: { type: "string" } } });
+const archive = values.archive && path.resolve(values.archive);
 const directory = await mkdtemp(path.join(tmpdir(), "ntapi-pack-"));
 function npm(args, cwd = root) {
   const result = spawnSync(process.execPath, [npmCli, ...args], {
@@ -23,12 +26,19 @@ try {
   const listing = JSON.parse(
     npm([
       "pack",
+      ...(archive ? [archive] : []),
       "--ignore-scripts",
       "--json",
       "--pack-destination",
       directory,
     ]),
   )[0];
+  if (archive)
+    assert.deepEqual(
+      await readFile(path.join(directory, listing.filename)),
+      await readFile(archive),
+      "The consumer must install the exact supplied archive bytes",
+    );
   assert.ok(listing.files.some((x) => x.path === "dist/cli.js"));
   assert.ok(!listing.files.some((x) => /\.(?:pem|key|pfx|p12)$/i.test(x.path)));
   assert.ok(
@@ -42,19 +52,20 @@ try {
   const publicFiles = new Set([
     "package.json",
     ...pkg.files.filter((name) => !name.includes("*")),
+    ...(await readdir(path.join(root, "src")))
+      .filter((name) => name.endsWith(".ts"))
+      .flatMap((name) => [
+        `dist/${name.replace(/\.ts$/, ".js")}`,
+        `dist/${name.replace(/\.ts$/, ".d.ts")}`,
+      ]),
   ]);
-  for (const entry of listing.files) {
-    assert.ok(
-      publicFiles.has(entry.path) ||
-        /^dist\/[a-z]+\.(?:js|d\.ts)$/.test(entry.path),
-      `Unexpected package file: ${entry.path}`,
-    );
-  }
-  await writeManifest(listing);
-  npm(
-    ["ci", "--offline", "--ignore-scripts", "--no-audit", "--no-fund"],
-    directory,
+  assert.deepEqual(
+    listing.files.map((entry) => entry.path).sort(),
+    [...publicFiles].sort(),
+    "Archive must contain exactly the public files and current compiled modules",
   );
+  await writeManifest(listing);
+  npm(["ci", "--offline", "--no-audit", "--no-fund"], directory);
   const metadata = JSON.parse(
     await readFile(
       path.join(directory, "node_modules/@nottherealapi/cli/package.json"),
@@ -62,6 +73,61 @@ try {
     ),
   );
   assert.equal(metadata.bin.nottherealapi, "dist/cli.js");
+  assert.equal(metadata.name, "@nottherealapi/cli");
+  assert.equal(metadata.version, "0.1.0");
+  assert.equal(metadata.type, "module");
+  assert.equal(metadata.license, "MIT");
+  assert.equal(metadata.engines.node, ">=22.13.0");
+  assert.equal(metadata.publishConfig.access, "public");
+  for (const name of ["preinstall", "install", "postinstall", "prepare"])
+    assert.equal(metadata.scripts?.[name], undefined);
+  const installed = path.join(directory, "node_modules/@nottherealapi/cli");
+  for (const entry of listing.files) {
+    const content = await readFile(path.join(installed, entry.path), "utf8");
+    assert.doesNotMatch(
+      content,
+      /-----BEGIN [A-Z ]*(?:PRIVATE KEY|CERTIFICATE)-----/,
+    );
+    assert.doesNotMatch(content, /sourceMappingURL=/);
+    if (entry.path.endsWith(".js"))
+      assert.ok(
+        listing.files.some(
+          (x) => x.path === entry.path.replace(/\.js$/, ".d.ts"),
+        ),
+        `Missing declaration: ${entry.path}`,
+      );
+  }
+  const imports = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      'import assert from "node:assert/strict"; import { listen, ProtocolClient } from "@nottherealapi/cli"; import { VERSION, claimSchema } from "@nottherealapi/cli/protocol"; assert.equal(typeof listen, "function"); assert.equal(typeof ProtocolClient, "function"); assert.equal(VERSION, "ntapi.listener.v1"); assert.equal(typeof claimSchema.parse, "function");',
+    ],
+    { cwd: directory, encoding: "utf8", timeout: 10_000 },
+  );
+  assert.equal(imports.status, 0, imports.stderr || imports.stdout);
+  await writeFile(
+    path.join(directory, "consumer.mts"),
+    'import { listen, type Scope } from "@nottherealapi/cli"; import { VERSION } from "@nottherealapi/cli/protocol"; const scope: Scope = { module: "synthetic", environment: "production", destination: "0".repeat(64) }; void [listen, VERSION, scope];',
+  );
+  const types = spawnSync(
+    process.execPath,
+    [
+      path.join(root, "node_modules/typescript/bin/tsc"),
+      "--noEmit",
+      "--strict",
+      "--module",
+      "NodeNext",
+      "--moduleResolution",
+      "NodeNext",
+      "--typeRoots",
+      path.join(root, "node_modules/@types"),
+      "consumer.mts",
+    ],
+    { cwd: directory, encoding: "utf8", timeout: 30_000 },
+  );
+  assert.equal(types.status, 0, types.stderr || types.stdout);
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--version"], directory),
     /^0\.1\.0\s*$/,
@@ -70,9 +136,14 @@ try {
     npm(["exec", "--offline", "--", "nottherealapi", "--help"], directory),
     /default production; does not select API host/,
   );
+  assert.match(
+    npm(["exec", "--offline", "--", "nottherealapi", "auth"], directory),
+    /Production listeners are not currently enabled/,
+  );
   console.log(
     await notificationSmoke(
       path.join(directory, "node_modules/@nottherealapi/cli/dist/cli.js"),
+      directory,
     ),
   );
   console.log(

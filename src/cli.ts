@@ -9,7 +9,7 @@ Usage: nottherealapi listen --module ID --forward-to http://localhost:3000/webho
 Authentication: NTAPI_LISTENER_TOKEN, --token-file PATH (POSIX owner-only), or --token VALUE
 Prefer the environment: command-line tokens are visible in process listings.
 Options:
-  --environment production|preview    Token scope (default production; does not select API host)
+  --environment production            Token scope (default production; does not select API host)
   --api-url HTTPS_ORIGIN              API origin (default https://nottherealapi.com)
   --allow-loopback-api                Allow HTTP loopback reference server only
   --once                             Process one claim; stop after one idle poll by default

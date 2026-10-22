@@ -1,7 +1,7 @@
 {
   "name": "@nottherealapi/cli",
   "version": "0.1.0",
-  "description": "Local webhook transport with optional WebSocket hints and authoritative HTTPS delivery",
+  "description": "Webhook listener CLI protocol with HTTPS delivery and WebSocket hints; Production hosted listeners not yet enabled",
   "type": "module",
   "bin": {
     "nottherealapi": "dist/cli.js"
@@ -19,6 +19,7 @@
     "docs/protocol-v1.schema.json",
     "docs/fixtures/v1.json",
     "README.md",
+    "CHANGELOG.md",
     "CONTRIBUTING.md",
     "LICENSE",
     "SECURITY.md"
