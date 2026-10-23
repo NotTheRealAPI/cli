@@ -32,3 +32,4 @@ jobs:
       - run: npm run demo
       - run: npm run pack:smoke
       - run: npm audit --audit-level=high
+      - run: npm audit --omit=dev

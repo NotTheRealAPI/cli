@@ -1,7 +1,7 @@
 {
   "name": "@nottherealapi/cli",
   "version": "0.2.0",
-  "description": "Webhook listener CLI protocol with HTTPS delivery and WebSocket hints; Production hosted listeners not yet enabled",
+  "description": "Provider-neutral webhook listener CLI with bounded loopback POST forwarding, HTTPS delivery and WebSocket hints",
   "type": "module",
   "bin": {
     "nottherealapi": "dist/cli.js"
@@ -26,8 +26,7 @@
     "SECURITY.md",
     "docs/listener-protocol-v2.md",
     "docs/protocol-v2.schema.json",
-    "docs/fixtures/v2.json",
-    "docs/SAAS-V2-HANDOFF.md"
+    "docs/fixtures/v2.json"
   ],
   "engines": {
     "node": ">=22.13.0"

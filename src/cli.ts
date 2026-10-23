@@ -11,7 +11,7 @@ Prefer the environment: command-line tokens are visible in process listings.
 Options:
   --protocol v2                      Wire contract (default v2; v1 explicitly selects legacy)
   --include-verification-url         V2 only: disclose signing URL to handler in local metadata header
-  --environment production            Token scope (default production; does not select API host)
+  --environment production           Token scope (default production; does not select API host)
   --api-url HTTPS_ORIGIN              API origin (default https://nottherealapi.com)
   --allow-loopback-api                Allow HTTP loopback reference server only
   --once                             Process one claim; stop after one idle poll by default
@@ -25,9 +25,13 @@ Options:
 Exit: 0 local 2xx + ACK receipt, 1 transport/protocol, 2 usage, 3 auth/scope,
       4 idle limit, 5 local failure/uncertain ACK, 130 cancellation.
 No browser login endpoint, telemetry, signature generation, or inbound tunnel.
+Generic bounded HTTP POST only, to a fixed numerical loopback destination.
+No redirects or proxies. The local handler must verify provider signatures on raw bytes.
+Signing-URL opt-in may reveal private paths/query values to the handler and its logs.
 Optional WebSocket hints wake authoritative HTTPS claims; safety probe every 60s.
 HTTP polling resumes when notifications are unavailable. One active session per user.
 CLI protocol support does not enable hosted access. Production listeners are not currently enabled.
+Hosted V2 requires a compatible server deployment; hosted V2 availability is not established.
 Existing V1-only services require explicit --protocol v1; there is no automatic downgrade.
 `;
 const stop = new AbortController();

@@ -5,7 +5,7 @@
 - Provider-neutral V2: exact opaque bodies, POST, bounded generic safe headers and optional canonical signing URL metadata disclosed to the handler only by opt-in.
 - V2 executable default; explicit `--protocol v1` retains the unchanged 0.1.0 Stripe contract. No automatic downgrade. Separate protocol exports, schemas and fixtures share one forwarding/ACK engine.
 - Permanent provider-agnostic-contract gate, independent SDK verification fixtures, V2 durability/notification suite and installed-tarball acceptance across the six CI jobs.
-- Exact SaaS implementation/Preview acceptance/rollback handoff; no SaaS changes, npm publication, release or tag in this phase.
+- Self-contained public V2 contract, explicit V1 upgrade guidance and package checks that exclude private operational material and broken documentation links. Hosted V2 requires a compatible server deployment; this candidate does not establish hosted availability.
 
 ## 0.1.0 — 2026-10-22
 

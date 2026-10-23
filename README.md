@@ -2,11 +2,11 @@
 
 Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. Optional outbound WebSocket notifications wake HTTPS claims; HTTPS remains authoritative for registration, delivery, ACKs and close. The CLI preserves the original body bytes and signature headers and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
 
-**Hosted availability:** this unpublished **0.2.0 candidate** adds provider-neutral `ntapi.listener.v2` and retains frozen Stripe V1 through explicit `--protocol v1`. The current SaaS supports V1 only; V2 requires the separate [server handoff](docs/SAAS-V2-HANDOFF.md). Production hosted listeners are not currently enabled. Notification hints remain `ntapi.listener.notify.v1`. Local tests and package smoke require no hosted credentials.
+**Hosted availability:** this unpublished **0.2.0 candidate** defaults to provider-neutral `ntapi.listener.v2` and retains frozen Stripe V1 through explicit `--protocol v1`. The current hosted service supports V1 only; hosted V2 requires a compatible server deployment and has not been accepted for use. Production hosted listeners are not currently enabled. Notification hints remain `ntapi.listener.notify.v1`. Local tests and package smoke require no hosted credentials.
 
 ## Install
 
-The latest published baseline is **0.1.0** (V1 only). This task does not publish 0.2.0. For that published baseline:
+The published baseline is **0.1.0** (V1 only). Version 0.2.0 remains an unpublished candidate. For the published baseline:
 
 ```sh
 npm install --global @nottherealapi/cli@0.1.0
@@ -44,7 +44,9 @@ npm install -g ./nottherealapi-cli-0.2.0.tgz
 nottherealapi --help
 ```
 
-The [contribution guide](CONTRIBUTING.md) lists development checks. Maintainers: see the [manual release runbook](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release.md) and [historical readiness audit](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release-readiness.md).
+The [contribution guide](CONTRIBUTING.md) lists development checks. Maintainers can find the public [package validation and release procedure](https://github.com/NotTheRealAPI/cli/blob/main/docs/npm-release.md) in the repository.
+
+When upgrading from 0.1.0, add `--protocol v1` to commands for older services before switching executables. Use the V2 default only with a service that explicitly supports it. Root library exports and `/protocol` retain V1; import `/protocol-v2` for V2 validators. The three-argument `ProtocolClient` constructor still selects V1; pass `"v2"` as its fourth argument to select V2.
 
 ## Connect to a compatible service
 
@@ -144,11 +146,11 @@ Only literal `localhost`, `127.0.0.1`, and `[::1]` forwarding targets are accept
 
 V2 forwards an opaque body (0–1 MiB), POST and 0–24 authorized end-to-end header pairs. Values are printable ASCII, at most 1024 bytes each and 8192 aggregate name/value bytes; names are HTTP tokens of at most 64 bytes. Content-Type is optional. Generic framing, routing, credential, override and reserved metadata headers are refused. The server owns provider/custom-header admissibility; there is no CLI provider allowlist. See the [exact contract and denylist](docs/listener-protocol-v2.md).
 
-For URL-bound signatures, the cloud supplies optional `verificationUrl` from the canonical public URL it actually signed. Add `--include-verification-url` to disclose it to your local handler as `x-ntapi-listener-verification-url`; the handler passes it to its provider verifier instead of localhost. It never changes forwarding, appears in normal output, or enters ACK evidence. Do not trust this metadata convention on public routes.
+For URL-bound signatures, the cloud supplies optional `verificationUrl` from the canonical public URL it actually signed. Add `--include-verification-url` to disclose it to your local handler as `x-ntapi-listener-verification-url`; the handler passes it to its provider verifier instead of localhost. The URL may reveal private paths or query values to any process owning that loopback port and to handler logs; secure both. It never changes forwarding, appears in normal output, or enters ACK evidence. Do not trust this metadata convention on public routes.
 
 **Adding a callback provider within V2 bounds requires zero changes to CLI source, protocol enumerations or release version.** The permanent `provider-agnostic-contract` CI gate changes unfamiliar signature/timestamp/correlation header sets across JSON, form, binary and empty bodies, including the installed tarball. New methods, compressed bodies, non-ASCII headers, larger limits, gRPC or bidirectional streaming require explicit transport design/review.
 
-The handler must verify the original signature against raw request bytes before body parsing, using the synthetic test signing secret supplied by its event source. The CLI never signs or reserializes the body. Delivery is at least once: handlers must deduplicate provider event IDs.
+The handler must verify the original signature against raw request bytes before body parsing, using its event source's signing secret. Use fabricated secrets for local tests. The CLI never signs or reserializes the body. Delivery is at least once: handlers must deduplicate provider event IDs.
 
 A local HTTP 500 is reported as `outcome=http_error status=500`. An ACK receipt confirms that the service recorded that outcome, not that delivery succeeded. A disconnect after transmission is `uncertain`, even if the handler has committed a side effect. `ack_pending` and `ack_unconfirmed` report sanitized local evidence; there is no automatic disk spool or cross-process ACK replay. Capture `--json` output in a protected file if needed.
 

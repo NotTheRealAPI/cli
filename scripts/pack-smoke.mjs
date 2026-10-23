@@ -47,6 +47,24 @@ try {
       /^(src|test|scripts|node_modules|\.github)\//.test(x.path),
     ),
   );
+  const contractFiles = new Set([
+    "docs/listener-protocol-v1.md",
+    "docs/listener-protocol-v2.md",
+    "docs/listener-notifications-v1.md",
+    "docs/security.md",
+    "docs/protocol-v1.schema.json",
+    "docs/protocol-v2.schema.json",
+    "docs/fixtures/v1.json",
+    "docs/fixtures/v2.json",
+  ]);
+  assert.deepEqual(
+    listing.files
+      .map((entry) => entry.path)
+      .filter((name) => name.startsWith("docs/"))
+      .sort(),
+    [...contractFiles].sort(),
+    "Ship only public contracts, security documentation and synthetic examples",
+  );
   const pkg = JSON.parse(
     await readFile(path.join(root, "package.json"), "utf8"),
   );
@@ -80,9 +98,23 @@ try {
   assert.equal(metadata.license, "MIT");
   assert.equal(metadata.engines.node, ">=22.13.0");
   assert.equal(metadata.publishConfig.access, "public");
+  assert.deepEqual(Object.keys(metadata.dependencies).sort(), ["ws", "zod"]);
+  assert.equal(metadata.bundleDependencies, undefined);
+  assert.equal(metadata.bundledDependencies, undefined);
+  const runtime = JSON.parse(
+    npm(["ls", "--omit=dev", "--all", "--json"], directory),
+  );
+  assert.deepEqual(Object.keys(runtime.dependencies), [metadata.name]);
+  assert.deepEqual(
+    Object.keys(runtime.dependencies[metadata.name].dependencies).sort(),
+    ["ws", "zod"],
+    "Fresh consumers must not install provider SDKs or other dev dependencies",
+  );
   for (const name of ["preinstall", "install", "postinstall", "prepare"])
     assert.equal(metadata.scripts?.[name], undefined);
   const installed = path.join(directory, "node_modules/@nottherealapi/cli");
+  const archivePaths = new Set(listing.files.map((entry) => entry.path));
+  let localLinks = 0;
   for (const entry of listing.files) {
     const content = await readFile(path.join(installed, entry.path), "utf8");
     assert.doesNotMatch(
@@ -90,6 +122,34 @@ try {
       /-----BEGIN [A-Z ]*(?:PRIVATE KEY|CERTIFICATE)-----/,
     );
     assert.doesNotMatch(content, /sourceMappingURL=/);
+    assert.doesNotMatch(
+      content,
+      /(?:[A-Z]:[\\/](?:Users|home)[\\/]|\/(?:Users|home)\/)[^\s"'`<>]+/i,
+      `Local filesystem path in ${entry.path}`,
+    );
+    assert.doesNotMatch(
+      content,
+      /(?:saas[- ]v2[- ]handoff|server implementation handoff|preview acceptance|npm-release-readiness)/i,
+      `Private work orders or acceptance evidence in ${entry.path}`,
+    );
+    if (entry.path.endsWith(".md")) {
+      for (const match of content.matchAll(/!?\[[^\]]*\]\(([^\s)]+)\)/g)) {
+        const href = match[1];
+        if (/^https?:\/\//i.test(href) || href.startsWith("#")) continue;
+        assert.ok(!/^[a-z]+:|^[/\\]/i.test(href), `Non-public link: ${href}`);
+        const target = path.posix.normalize(
+          path.posix.join(
+            path.posix.dirname(entry.path),
+            decodeURIComponent(href.split(/[?#]/)[0]),
+          ),
+        );
+        assert.ok(
+          archivePaths.has(target),
+          `Broken link: ${entry.path} -> ${href}`,
+        );
+        localLinks++;
+      }
+    }
     if (entry.path.endsWith(".js"))
       assert.ok(
         listing.files.some(
@@ -98,6 +158,9 @@ try {
         `Missing declaration: ${entry.path}`,
       );
   }
+  console.log(
+    `Public archive contents and ${localLinks} relative Markdown links verified`,
+  );
   const imports = spawnSync(
     process.execPath,
     [
