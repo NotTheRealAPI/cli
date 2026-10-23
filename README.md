@@ -2,11 +2,11 @@
 
 Forward provider-signed webhook events from a compatible listener service to a fixed local HTTP endpoint. Optional outbound WebSocket notifications wake HTTPS claims; HTTPS remains authoritative for registration, delivery, ACKs and close. The CLI preserves the original body bytes and signature headers and reports the local handler's outcome. It does not open an inbound tunnel or create or sign events.
 
-**Hosted availability:** the CLI implements `ntapi.listener.v1` and optional `ntapi.listener.notify.v1` notifications. Production hosted listeners are not currently enabled; installing the CLI does not enable hosted access. The runnable demo and automated tests use local reference services.
+**Hosted availability:** this unpublished **0.2.0 candidate** adds provider-neutral `ntapi.listener.v2` and retains frozen Stripe V1 through explicit `--protocol v1`. The current SaaS supports V1 only; V2 requires the separate [server handoff](docs/SAAS-V2-HANDOFF.md). Production hosted listeners are not currently enabled. Notification hints remain `ntapi.listener.notify.v1`. Local tests and package smoke require no hosted credentials.
 
 ## Install
 
-Install version **0.1.0**:
+The latest published baseline is **0.1.0** (V1 only). This task does not publish 0.2.0. For that published baseline:
 
 ```sh
 npm install --global @nottherealapi/cli@0.1.0
@@ -40,7 +40,7 @@ To install the built package locally:
 
 ```sh
 npm pack
-npm install -g ./nottherealapi-cli-0.1.0.tgz
+npm install -g ./nottherealapi-cli-0.2.0.tgz
 nottherealapi --help
 ```
 
@@ -52,6 +52,7 @@ For hosted use once listener access is enabled, the following configuration uses
 
 ```sh
 nottherealapi listen \
+  --protocol v1 \
   --module stripe-payments \
   --forward-to http://localhost:3000/webhook \
   --environment production --json
@@ -61,6 +62,7 @@ For a local reference service at `http://127.0.0.1:8787`, explicitly permit loop
 
 ```sh
 nottherealapi listen \
+  --protocol v1 \
   --module stripe-payments \
   --forward-to http://localhost:3000/webhook \
   --api-url http://127.0.0.1:8787 \
@@ -68,6 +70,8 @@ nottherealapi listen \
   --environment production \
   --once --json
 ```
+
+These legacy commands deliberately select V1 for the current SaaS and reference demo. For a V2-capable service use `--protocol v2` (the 0.2.0 executable default) with any authorized module. Version selection is fixed for the run; no network/auth/protocol error triggers downgrade.
 
 The built-in API origin is `https://nottherealapi.com`, and token scope defaults to `production`. `--environment` selects token scope; it never changes the API hostname or enables hosted functionality. Select a different authorized API origin with `--api-url`. Non-loopback APIs require HTTPS.
 
@@ -108,6 +112,8 @@ nottherealapi --version
 
 | Option                               | Default / behavior                                                  |
 | ------------------------------------ | ------------------------------------------------------------------- |
+| `--protocol v2`                      | V2 default; explicit `v1` selects the frozen legacy contract        |
+| `--include-verification-url`         | off; V2 only, disclose canonical signing URL to local handler       |
 | `--environment production`           | production; scope selector, does not change API hostname            |
 | `--api-url HTTPS_ORIGIN`             | `https://nottherealapi.com`; hosted listeners not currently enabled |
 | `--allow-loopback-api`               | off; permits HTTP for a loopback reference API                      |
@@ -136,6 +142,12 @@ Healthy notifications replace routine idle polling with hints and a **60-second 
 
 Only literal `localhost`, `127.0.0.1`, and `[::1]` forwarding targets are accepted. The CLI maps `localhost` to `127.0.0.1` without DNS; select `[::1]` for an IPv6-only handler. Bind your handler to loopback. Fixed paths and queries are retained. Redirects are reported as HTTP failures and never followed. Proxy environment variables are ignored. HTTPS requires a certificate valid for the numerical host; there is no TLS bypass option.
 
+V2 forwards an opaque body (0–1 MiB), POST and 0–24 authorized end-to-end header pairs. Values are printable ASCII, at most 1024 bytes each and 8192 aggregate name/value bytes; names are HTTP tokens of at most 64 bytes. Content-Type is optional. Generic framing, routing, credential, override and reserved metadata headers are refused. The server owns provider/custom-header admissibility; there is no CLI provider allowlist. See the [exact contract and denylist](docs/listener-protocol-v2.md).
+
+For URL-bound signatures, the cloud supplies optional `verificationUrl` from the canonical public URL it actually signed. Add `--include-verification-url` to disclose it to your local handler as `x-ntapi-listener-verification-url`; the handler passes it to its provider verifier instead of localhost. It never changes forwarding, appears in normal output, or enters ACK evidence. Do not trust this metadata convention on public routes.
+
+**Adding a callback provider within V2 bounds requires zero changes to CLI source, protocol enumerations or release version.** The permanent `provider-agnostic-contract` CI gate changes unfamiliar signature/timestamp/correlation header sets across JSON, form, binary and empty bodies, including the installed tarball. New methods, compressed bodies, non-ASCII headers, larger limits, gRPC or bidirectional streaming require explicit transport design/review.
+
 The handler must verify the original signature against raw request bytes before body parsing, using the synthetic test signing secret supplied by its event source. The CLI never signs or reserializes the body. Delivery is at least once: handlers must deduplicate provider event IDs.
 
 A local HTTP 500 is reported as `outcome=http_error status=500`. An ACK receipt confirms that the service recorded that outcome, not that delivery succeeded. A disconnect after transmission is `uncertain`, even if the handler has committed a side effect. `ack_pending` and `ack_unconfirmed` report sanitized local evidence; there is no automatic disk spool or cross-process ACK replay. Capture `--json` output in a protected file if needed.
@@ -144,6 +156,6 @@ Normal diagnostics omit payloads, signature headers, full URLs and credentials. 
 
 For connection errors, check the handler's address, port and firewall. For uncertain delivery, inspect handler effects before retrying. Protocol mismatch, denied scope and session conflict stop the run; use a matching service/token or close the other listener.
 
-See the [protocol specification](docs/listener-protocol-v1.md), [security model](docs/security.md), and [vulnerability reporting policy](SECURITY.md).
+See the [V2 protocol](docs/listener-protocol-v2.md), [frozen V1 protocol](docs/listener-protocol-v1.md), [security model](docs/security.md), and [vulnerability reporting policy](SECURITY.md).
 
 Code is licensed under [MIT](LICENSE). Trademark and project name rights are separate from the code licence.

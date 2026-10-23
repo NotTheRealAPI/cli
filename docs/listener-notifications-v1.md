@@ -1,10 +1,10 @@
 # Listener notifications V1
 
-Wire version: **`ntapi.listener.notify.v1`**, independent of [HTTP delivery V1](listener-protocol-v1.md). The CLI implements this optional channel; Production hosted listeners are not currently enabled. It carries hints only: registration, fenced claims, byte validation, local delivery, ACK retries and durable receipts remain on HTTPS. No webhook data or delivery authority is conveyed by a hint.
+Wire version: **`ntapi.listener.notify.v1`**, independent of [HTTP delivery V1](listener-protocol-v1.md) and [V2](listener-protocol-v2.md). The CLI implements this optional channel; Production hosted listeners are not currently enabled. It carries hints only: registration, fenced claims, byte validation, local delivery, ACK retries and durable receipts remain on HTTPS. No webhook data or delivery authority is conveyed by a hint.
 
 ## Ticket and socket
 
-Register a session through HTTP V1 first. POST `/listener/notify/v1/tickets` at the configured API origin with `Authorization: Bearer <scoped listener token>`, `Content-Type: application/json`, `Accept: application/json` and `X-NTAPI-Listener-Notify-Version: ntapi.listener.notify.v1`. The body is exactly:
+Register a session through the explicitly selected HTTP delivery version first. The service resolves its stored session version without adding delivery-version or provider fields to notification frames. POST `/listener/notify/v1/tickets` at the configured API origin with `Authorization: Bearer <scoped listener token>`, `Content-Type: application/json`, `Accept: application/json` and `X-NTAPI-Listener-Notify-Version: ntapi.listener.notify.v1`. The body is exactly:
 
 ```json
 {

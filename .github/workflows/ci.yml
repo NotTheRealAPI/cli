@@ -25,7 +25,10 @@ jobs:
       - run: npm run lint
       - run: npm run format:check
       - run: npm test
-      - run: git diff --exit-code -- docs/protocol-v1.schema.json
+      - run: npm run test:v2-durability
+      - name: provider-agnostic-contract
+        run: npm run test:provider-agnostic-contract
+      - run: git diff --exit-code -- docs/protocol-v1.schema.json docs/protocol-v2.schema.json
       - run: npm run demo
       - run: npm run pack:smoke
       - run: npm audit --audit-level=high

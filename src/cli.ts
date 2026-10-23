@@ -3,12 +3,14 @@ import { configuration, SafeError } from "./config.js";
 import { listen } from "./listener.js";
 import { reporter } from "./output.js";
 
-export const HELP = `NotTheRealAPI CLI 0.1.0 — local webhook listener
+export const HELP = `NotTheRealAPI CLI 0.2.0 — local webhook listener
 Usage: nottherealapi listen --module ID --forward-to http://localhost:3000/webhooks [options]
        nottherealapi auth | --help | --version
 Authentication: NTAPI_LISTENER_TOKEN, --token-file PATH (POSIX owner-only), or --token VALUE
 Prefer the environment: command-line tokens are visible in process listings.
 Options:
+  --protocol v2                      Wire contract (default v2; v1 explicitly selects legacy)
+  --include-verification-url         V2 only: disclose signing URL to handler in local metadata header
   --environment production            Token scope (default production; does not select API host)
   --api-url HTTPS_ORIGIN              API origin (default https://nottherealapi.com)
   --allow-loopback-api                Allow HTTP loopback reference server only
@@ -26,6 +28,7 @@ No browser login endpoint, telemetry, signature generation, or inbound tunnel.
 Optional WebSocket hints wake authoritative HTTPS claims; safety probe every 60s.
 HTTP polling resumes when notifications are unavailable. One active session per user.
 CLI protocol support does not enable hosted access. Production listeners are not currently enabled.
+Existing V1-only services require explicit --protocol v1; there is no automatic downgrade.
 `;
 const stop = new AbortController();
 const cancel = () => stop.abort();
@@ -34,7 +37,7 @@ process.once("SIGTERM", cancel);
 try {
   const config = await configuration(process.argv.slice(2));
   if (config === "help") process.stdout.write(HELP);
-  else if (config === "version") process.stdout.write("0.1.0\n");
+  else if (config === "version") process.stdout.write("0.2.0\n");
   else if (config === "auth")
     process.stdout.write(
       "Use a scoped listener token for an enabled listener service. Set NTAPI_LISTENER_TOKEN for this process. The default scope is production at https://nottherealapi.com; Production listeners are not currently enabled. The CLI performs no browser login and stores nothing. One active listener session per user.\n",

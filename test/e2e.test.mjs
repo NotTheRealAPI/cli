@@ -8,15 +8,30 @@ import {
   listen,
   reporter,
   ProtocolClient,
-  VERSION,
+  VERSION as V1_VERSION,
   sha256,
   ApiError,
 } from "../dist/index.js";
-import { cloud, server, collect, event, TOKEN, SECRET } from "./fixture.mjs";
+import {
+  cloud as referenceCloud,
+  server,
+  collect,
+  event as referenceEvent,
+  TOKEN,
+  SECRET,
+} from "./fixture.mjs";
+
+const mode = process.env.NTAPI_TEST_PROTOCOL ?? "v1";
+const event = (...args) => ({
+  ...referenceEvent(...args),
+  ...(mode === "v2" ? { version: "ntapi.listener.v2", method: "POST" } : {}),
+});
+const VERSION = mode === "v1" ? V1_VERSION : "ntapi.listener.v2";
+const cloud = (options) => referenceCloud({ protocol: mode, ...options });
 
 async function setup(t, handler, options = {}, extra = []) {
   const local = await server(handler);
-  const remote = await cloud(options);
+  const remote = await cloud({ events: [event()], ...options });
   t.after(async () => {
     await local.close();
     await remote.close();
@@ -24,6 +39,8 @@ async function setup(t, handler, options = {}, extra = []) {
   const config = await configuration(
     [
       "listen",
+      "--protocol",
+      mode,
       "--module",
       "stripe-payments",
       "--forward-to",
@@ -209,6 +226,20 @@ for (const [name, mutate] of [
       },
       { events: [mutate(event())] },
     );
+    if (
+      mode === "v2" &&
+      [
+        "CRLF",
+        "duplicate header",
+        "cloud credential header",
+        "hop by hop",
+      ].includes(name)
+    ) {
+      await assert.rejects(f.run(), /protocol_mismatch/);
+      assert.equal(calls, 0);
+      assert.equal(f.remote.acks.length, 0);
+      return;
+    }
     assert.equal(await f.run(), 5);
     assert.equal(calls, 0);
     assert.equal(f.remote.acks[0].outcome.classification, "invalid_payload");
@@ -402,7 +433,7 @@ test("short or expired lease never reaches local endpoint", async (t) => {
 });
 test("dual listener conflict and wrong scope enforced by reference service", async (t) => {
   const f = await setup(t, (_req, res) => res.end());
-  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500);
+  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500, mode);
   const signal = new AbortController().signal;
   await client.register(
     f.config.scope,
@@ -461,6 +492,8 @@ test("executable --once, JSON privacy, malicious local response is never uplinke
     [
       "dist/cli.js",
       "listen",
+      "--protocol",
+      mode,
       "--module",
       "stripe-payments",
       "--forward-to",
@@ -643,7 +676,7 @@ test("reference service rejects stale, expired, and changed idempotency evidence
   const f = await setup(t, (_req, res) => res.end());
   assert.equal(await f.run(), 0);
   // Register a fresh authorized session, acquire a claim, then exercise the raw contract.
-  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500),
+  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500, mode),
     signal = new AbortController().signal;
   const sessionId = "00000000-0000-4000-8000-000000000099";
   await client.register(f.config.scope, sessionId, signal);
@@ -743,6 +776,8 @@ test("SIGTERM actual subprocess in flight exits 130 and never sends success ACK"
     [
       "dist/cli.js",
       "listen",
+      "--protocol",
+      mode,
       "--module",
       "stripe-payments",
       "--forward-to",

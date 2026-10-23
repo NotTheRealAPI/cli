@@ -9,8 +9,19 @@ import {
   NOTIFY_VERSION as version,
 } from "../dist/notifications.js";
 import { timing } from "../dist/listener.js";
-import { server, collect, event, TOKEN } from "./fixture.mjs";
-import { notifyingCloud, notificationSmoke } from "./notify-fixture.mjs";
+import { server, collect, event as referenceEvent, TOKEN } from "./fixture.mjs";
+import {
+  notifyingCloud as referenceCloud,
+  notificationSmoke,
+} from "./notify-fixture.mjs";
+
+const mode = process.env.NTAPI_TEST_PROTOCOL ?? "v1";
+const event = (...args) => ({
+  ...referenceEvent(...args),
+  ...(mode === "v2" ? { version: "ntapi.listener.v2", method: "POST" } : {}),
+});
+const notifyingCloud = (options) =>
+  referenceCloud({ protocol: mode, events: [event()], ...options });
 
 async function setup(t, options = {}, handler = (_req, res) => res.end()) {
   const local = await server(handler);
@@ -22,6 +33,8 @@ async function setup(t, options = {}, handler = (_req, res) => res.end()) {
   const config = await configuration(
     [
       "listen",
+      "--protocol",
+      mode,
       "--module",
       "stripe-payments",
       "--forward-to",
@@ -362,7 +375,7 @@ test("closing and disconnection reconnect with fresh tickets and preserve durabl
   };
   // Register first using the authoritative client.
   const { ProtocolClient } = await import("../dist/client.js");
-  await new ProtocolClient(new URL(f.remote.url), TOKEN, 500).register(
+  await new ProtocolClient(new URL(f.remote.url), TOKEN, 500, mode).register(
     f.config.scope,
     session.sessionId,
     stop.signal,
@@ -500,7 +513,7 @@ test("socket lifetime, identity reset and stale callbacks leave no abort listene
   );
   t.after(() => n.stop());
   const { ProtocolClient } = await import("../dist/client.js");
-  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500);
+  const client = new ProtocolClient(new URL(f.remote.url), TOKEN, 500, mode);
   const session = await client.register(
     f.config.scope,
     "00000000-0000-4000-8000-000000000001",

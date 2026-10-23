@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { parseArgs } from "node:util";
 import { notificationSmoke } from "../test/notify-fixture.mjs";
+import { providerContract } from "../test/provider-contract.mjs";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run via npm run pack:smoke");
@@ -74,7 +75,7 @@ try {
   );
   assert.equal(metadata.bin.nottherealapi, "dist/cli.js");
   assert.equal(metadata.name, "@nottherealapi/cli");
-  assert.equal(metadata.version, "0.1.0");
+  assert.equal(metadata.version, "0.2.0");
   assert.equal(metadata.type, "module");
   assert.equal(metadata.license, "MIT");
   assert.equal(metadata.engines.node, ">=22.13.0");
@@ -102,14 +103,14 @@ try {
     [
       "--input-type=module",
       "-e",
-      'import assert from "node:assert/strict"; import { listen, ProtocolClient } from "@nottherealapi/cli"; import { VERSION, claimSchema } from "@nottherealapi/cli/protocol"; assert.equal(typeof listen, "function"); assert.equal(typeof ProtocolClient, "function"); assert.equal(VERSION, "ntapi.listener.v1"); assert.equal(typeof claimSchema.parse, "function");',
+      'import assert from "node:assert/strict"; import { listen, ProtocolClient, v2 } from "@nottherealapi/cli"; import { VERSION, claimSchema } from "@nottherealapi/cli/protocol"; import * as contract from "@nottherealapi/cli/protocol-v2"; assert.equal(typeof listen, "function"); assert.equal(typeof ProtocolClient, "function"); assert.equal(VERSION, "ntapi.listener.v1"); assert.equal(typeof claimSchema.parse, "function"); assert.equal(v2.VERSION, "ntapi.listener.v2"); assert.equal(contract.claimSchema, v2.claimSchema);',
     ],
     { cwd: directory, encoding: "utf8", timeout: 10_000 },
   );
   assert.equal(imports.status, 0, imports.stderr || imports.stdout);
   await writeFile(
     path.join(directory, "consumer.mts"),
-    'import { listen, type Scope } from "@nottherealapi/cli"; import { VERSION } from "@nottherealapi/cli/protocol"; const scope: Scope = { module: "synthetic", environment: "production", destination: "0".repeat(64) }; void [listen, VERSION, scope];',
+    'import { listen, ProtocolClient, type Scope, type DeliveryClaim } from "@nottherealapi/cli"; import { VERSION } from "@nottherealapi/cli/protocol"; import { type Claim, claimSchema } from "@nottherealapi/cli/protocol-v2"; const scope: Scope = { module: "synthetic", environment: "production", destination: "0".repeat(64) }; const claim: Claim = claimSchema.parse({}); const delivery: DeliveryClaim = claim; const client = new ProtocolClient(new URL("https://example.test"), "synthetic", 100, "v2"); void [listen, VERSION, scope, delivery, client];',
   );
   const types = spawnSync(
     process.execPath,
@@ -130,7 +131,7 @@ try {
   assert.equal(types.status, 0, types.stderr || types.stdout);
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--version"], directory),
-    /^0\.1\.0\s*$/,
+    /^0\.2\.0\s*$/,
   );
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--help"], directory),
@@ -145,6 +146,9 @@ try {
       path.join(directory, "node_modules/@nottherealapi/cli/dist/cli.js"),
       directory,
     ),
+  );
+  console.log(
+    await providerContract(path.join(installed, "dist/cli.js"), directory),
   );
   console.log(
     `Packed bin installed and executed: ${listing.files.length} files, ${listing.size} bytes (${process.platform}, ${process.version})`,

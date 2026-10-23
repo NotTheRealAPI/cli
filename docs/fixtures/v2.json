@@ -1,0 +1,92 @@
+{
+  "registerSchema": {
+    "version": "ntapi.listener.v2",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "scope": {
+      "module": "arbitrary-module",
+      "environment": "preview",
+      "destination": "d0edd135249d21b1ff08b7f619736bdce17ddcd1ccaaef9a4d1b7ed6982c2a0f"
+    }
+  },
+  "sessionSchema": {
+    "version": "ntapi.listener.v2",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "scope": {
+      "module": "arbitrary-module",
+      "environment": "preview",
+      "destination": "d0edd135249d21b1ff08b7f619736bdce17ddcd1ccaaef9a4d1b7ed6982c2a0f"
+    },
+    "expiresAt": "2030-01-01T00:05:00.000Z"
+  },
+  "pollSchema": {
+    "version": "ntapi.listener.v2",
+    "waitMs": 10000
+  },
+  "claimSchema": {
+    "version": "ntapi.listener.v2",
+    "kind": "claim",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "deliveryId": "delivery_example",
+    "attemptId": "attempt_example",
+    "attempt": 1,
+    "eventId": "evt_example",
+    "eventType": "future.arrived",
+    "claimToken": "synthetic_claim_0123456789",
+    "generation": 1,
+    "expiresAt": "2030-01-01T00:01:00.000Z",
+    "dispatchAt": "2030-01-01T00:00:00.000Z",
+    "bodyBase64": "e30=",
+    "bodySha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+    "bodyBytes": 2,
+    "headers": [
+      ["content-type", "application/octet-stream"],
+      ["X-Future-Signature", "opaque=synthetic"],
+      ["X-Future-Timestamp", "1893456000"],
+      ["X-Future-Correlation", "synthetic-trace"]
+    ],
+    "method": "POST",
+    "verificationUrl": "https://callbacks.example.test/events?route=%2Ftest"
+  },
+  "idleSchema": {
+    "version": "ntapi.listener.v2",
+    "kind": "idle",
+    "retryAfterMs": 250
+  },
+  "ackSchema": {
+    "version": "ntapi.listener.v2",
+    "sessionId": "00000000-0000-4000-8000-000000000001",
+    "deliveryId": "delivery_example",
+    "attemptId": "attempt_example",
+    "claimToken": "synthetic_claim_0123456789",
+    "generation": 1,
+    "ackKey": "00000000-0000-4000-8000-000000000002",
+    "outcome": {
+      "classification": "success",
+      "status": 204,
+      "durationMs": 12,
+      "requestBytes": 2,
+      "responseBytes": 0,
+      "responseComplete": true,
+      "truncated": false,
+      "error": "none",
+      "responseHeaders": [],
+      "responseBody": ""
+    }
+  },
+  "receiptSchema": {
+    "version": "ntapi.listener.v2",
+    "ackKey": "00000000-0000-4000-8000-000000000002",
+    "receipt": "recorded"
+  },
+  "errorSchema": {
+    "version": "ntapi.listener.v2",
+    "code": "stale_claim"
+  },
+  "closeSchema": {
+    "version": "ntapi.listener.v2"
+  },
+  "closedSchema": {
+    "version": "ntapi.listener.v2",
+    "closed": true
+  }
+}
