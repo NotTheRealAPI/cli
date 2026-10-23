@@ -1,14 +1,8 @@
 import http from "node:http";
+import * as v1 from "../dist/protocol.js";
+import * as v2 from "../dist/protocol-v2.js";
 import { randomUUID, createHmac } from "node:crypto";
-import {
-  VERSION,
-  sha256,
-  registerSchema,
-  pollSchema,
-  ackSchema,
-  closeSchema,
-  consistentOutcome,
-} from "../dist/protocol.js";
+import { VERSION, sha256, consistentOutcome } from "../dist/protocol.js";
 
 // Public synthetic values accepted only by the in-memory reference service.
 export const TOKEN = "ntapi_lst_reference_only_0123456789";
@@ -70,6 +64,7 @@ export function event(
   };
 }
 export async function cloud({
+  protocol = "v1",
   events = [event()],
   faults = {},
   scope,
@@ -83,6 +78,9 @@ export async function cloud({
   allowedActions = ["register", "poll", "ack", "close"],
   tokenExpiresAt = Infinity,
 } = {}) {
+  const { VERSION, registerSchema, pollSchema, ackSchema, closeSchema } =
+    protocol === "v1" ? v1 : v2;
+  const prefix = `/listener/${protocol}`;
   let session,
     revoked = false,
     generation = 0,
@@ -103,7 +101,7 @@ export async function cloud({
   const fixture = await server(async (req, res) => {
     try {
       const route =
-        req.url === "/listener/v1/sessions"
+        req.url === `${prefix}/sessions`
           ? "register"
           : req.url?.endsWith("/claims")
             ? "poll"
@@ -112,13 +110,20 @@ export async function cloud({
               : req.url?.endsWith("/close")
                 ? "close"
                 : "unknown";
-      calls.push({ route, at: now() });
+      calls.push({
+        route,
+        at: now(),
+        url: req.url,
+        version: req.headers["x-ntapi-listener-version"],
+      });
       if (
         req.headers.authorization !== `Bearer ${TOKEN}` ||
         revoked ||
         now() >= tokenExpiresAt
       )
         return failure(res, 401, "unauthorized");
+      if (route === "unknown" && protocol === "v2")
+        return failure(res, 404, "not_found");
       if (!enabled || !allowedActions.includes(route))
         return failure(res, 403, "forbidden");
       if (req.headers["x-ntapi-listener-version"] !== VERSION)
@@ -169,10 +174,7 @@ export async function cloud({
         closeSchema.parse(body);
         return respond(res, 200, { version: VERSION, closed: true });
       }
-      if (
-        !session ||
-        !req.url.startsWith(`/listener/v1/sessions/${session.id}/`)
-      )
+      if (!session || !req.url.startsWith(`${prefix}/sessions/${session.id}/`))
         return failure(res, 404, "not_found");
       if (
         grantScope &&

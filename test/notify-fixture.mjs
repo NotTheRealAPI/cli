@@ -159,6 +159,8 @@ export async function notificationSmoke(bin, cwd) {
       [
         bin,
         "listen",
+        "--protocol",
+        "v1",
         "--module",
         "stripe-payments",
         "--forward-to",

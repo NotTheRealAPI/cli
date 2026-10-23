@@ -1,14 +1,15 @@
 {
   "name": "@nottherealapi/cli",
-  "version": "0.1.0",
-  "description": "Webhook listener CLI protocol with HTTPS delivery and WebSocket hints; Production hosted listeners not yet enabled",
+  "version": "0.2.0",
+  "description": "Provider-neutral webhook listener CLI with bounded loopback POST forwarding, HTTPS delivery and WebSocket hints",
   "type": "module",
   "bin": {
     "nottherealapi": "dist/cli.js"
   },
   "exports": {
     ".": "./dist/index.js",
-    "./protocol": "./dist/protocol.js"
+    "./protocol": "./dist/protocol.js",
+    "./protocol-v2": "./dist/protocol-v2.js"
   },
   "files": [
     "dist/*.js",
@@ -22,7 +23,10 @@
     "CHANGELOG.md",
     "CONTRIBUTING.md",
     "LICENSE",
-    "SECURITY.md"
+    "SECURITY.md",
+    "docs/listener-protocol-v2.md",
+    "docs/protocol-v2.schema.json",
+    "docs/fixtures/v2.json"
   ],
   "engines": {
     "node": ">=22.13.0"
@@ -46,7 +50,9 @@
     "format:check": "prettier --check .",
     "prepack": "npm run build",
     "pack:smoke": "node scripts/pack-smoke.mjs",
-    "demo": "npm run build && node scripts/demo.mjs"
+    "demo": "npm run build && node scripts/demo.mjs",
+    "test:v2-durability": "node scripts/test-v2.mjs",
+    "test:provider-agnostic-contract": "node --test test/provider-agnostic-contract.test.mjs"
   },
   "dependencies": {
     "ws": "^8.22.0",
@@ -54,10 +60,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
+    "@hubspot/api-client": "^14.0.1",
     "@types/node": "^22.19.0",
     "@types/ws": "^8.18.2",
     "eslint": "^10.13.0",
+    "openai": "^7.43.0",
     "prettier": "^3.6.2",
+    "twilio": "^6.2.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.72.0"
   }

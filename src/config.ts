@@ -2,6 +2,7 @@ import { open } from "node:fs/promises";
 import { constants } from "node:fs";
 import { parseArgs } from "node:util";
 import { id, sha256, type Scope } from "./protocol.js";
+import type { ProtocolMode } from "./protocols.js";
 
 export class SafeError extends Error {
   constructor(
@@ -24,6 +25,8 @@ export interface Config {
   maxIdlePolls: number;
   backoffMs: number;
   backoffCapMs: number;
+  protocol: ProtocolMode;
+  includeVerificationUrl: boolean;
 }
 export function loopbackUrl(input: string): URL {
   let u: URL;
@@ -74,6 +77,8 @@ export async function configuration(
         "token-file": { type: "string" },
         "api-url": { type: "string" },
         environment: { type: "string" },
+        protocol: { type: "string" },
+        "include-verification-url": { type: "boolean" },
         "allow-loopback-api": { type: "boolean" },
         once: { type: "boolean" },
         json: { type: "boolean" },
@@ -119,6 +124,11 @@ export async function configuration(
     api = loopbackUrl(api.href);
   }
   const environment = v.environment ?? "production";
+  const protocol = v.protocol ?? "v2";
+  if (protocol !== "v1" && protocol !== "v2")
+    throw new SafeError("invalid_protocol_mode", 2);
+  if (protocol === "v1" && v["include-verification-url"])
+    throw new SafeError("verification_url_requires_v2", 2);
   if (environment !== "preview" && environment !== "production")
     throw new SafeError("invalid_environment", 2);
   if (v.token && v["token-file"])
@@ -167,6 +177,8 @@ export async function configuration(
     api,
     target,
     token,
+    protocol,
+    includeVerificationUrl: v["include-verification-url"] ?? false,
     scope: { module: v.module!, environment, destination: sha256(target.href) },
     once: v.once ?? false,
     json: v.json ?? false,

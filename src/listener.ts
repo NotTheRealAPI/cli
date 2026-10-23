@@ -6,13 +6,12 @@ import {
   isRetryable,
   newSessionId,
 } from "./client.js";
+import { type Outcome } from "./protocol.js";
 import {
-  VERSION,
-  decodePayload,
-  type Ack,
-  type Outcome,
-  type Session,
-} from "./protocol.js";
+  decodeDelivery,
+  type DeliveryAck as Ack,
+  type DeliverySession as Session,
+} from "./protocols.js";
 import { SafeError, type Config } from "./config.js";
 import { forward } from "./transport.js";
 import type { Reporter } from "./output.js";
@@ -52,6 +51,7 @@ export async function listen(
     config.api,
     config.token,
     config.requestTimeoutMs,
+    config.protocol,
   );
   let session: Session | undefined,
     sessionId = newSessionId(),
@@ -239,7 +239,7 @@ export async function listen(
         let payload;
         let outcome: Outcome;
         try {
-          payload = decodePayload(work);
+          payload = decodeDelivery(work, config.includeVerificationUrl);
         } catch {
           /* Poison evidence is reported without forwarding. */
         }
@@ -264,8 +264,8 @@ export async function listen(
             responseHeaders: [],
             responseBody: "",
           };
-        pending = {
-          version: VERSION,
+        const evidence: Ack = {
+          version: work.version,
           sessionId,
           deliveryId: work.deliveryId,
           attemptId: work.attemptId,
@@ -274,7 +274,8 @@ export async function listen(
           ackKey: randomUUID(),
           outcome,
         };
-        seen.set(key, pending);
+        pending = evidence;
+        seen.set(key, evidence);
         if (seen.size > 256) throw new SafeError("session_attempt_limit", 5);
         report("ack_pending", {
           eventId: work.eventId,

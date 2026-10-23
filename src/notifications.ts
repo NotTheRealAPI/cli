@@ -3,7 +3,7 @@ import { z } from "zod";
 import { wireRequest } from "./transport.js";
 import { SafeError } from "./config.js";
 import { retryAfter } from "./client.js";
-import type { Session } from "./protocol.js";
+import type { DeliverySession as Session } from "./protocols.js";
 import type { Reporter } from "./output.js";
 import type { Timing } from "./listener.js";
 

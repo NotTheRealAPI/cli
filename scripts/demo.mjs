@@ -31,6 +31,8 @@ try {
     [
       "dist/cli.js",
       "listen",
+      "--protocol",
+      "v1",
       "--module",
       "stripe-payments",
       "--forward-to",

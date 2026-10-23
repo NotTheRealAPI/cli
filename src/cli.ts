@@ -3,13 +3,15 @@ import { configuration, SafeError } from "./config.js";
 import { listen } from "./listener.js";
 import { reporter } from "./output.js";
 
-export const HELP = `NotTheRealAPI CLI 0.1.0 — local webhook listener
+export const HELP = `NotTheRealAPI CLI 0.2.0 — local webhook listener
 Usage: nottherealapi listen --module ID --forward-to http://localhost:3000/webhooks [options]
        nottherealapi auth | --help | --version
 Authentication: NTAPI_LISTENER_TOKEN, --token-file PATH (POSIX owner-only), or --token VALUE
 Prefer the environment: command-line tokens are visible in process listings.
 Options:
-  --environment production            Token scope (default production; does not select API host)
+  --protocol v2                      Wire contract (default v2; v1 explicitly selects legacy)
+  --include-verification-url         V2 only: disclose signing URL to handler in local metadata header
+  --environment production           Token scope (default production; does not select API host)
   --api-url HTTPS_ORIGIN              API origin (default https://nottherealapi.com)
   --allow-loopback-api                Allow HTTP loopback reference server only
   --once                             Process one claim; stop after one idle poll by default
@@ -23,9 +25,14 @@ Options:
 Exit: 0 local 2xx + ACK receipt, 1 transport/protocol, 2 usage, 3 auth/scope,
       4 idle limit, 5 local failure/uncertain ACK, 130 cancellation.
 No browser login endpoint, telemetry, signature generation, or inbound tunnel.
+Generic bounded HTTP POST only, to a fixed numerical loopback destination.
+No redirects or proxies. The local handler must verify provider signatures on raw bytes.
+Signing-URL opt-in may reveal private paths/query values to the handler and its logs.
 Optional WebSocket hints wake authoritative HTTPS claims; safety probe every 60s.
 HTTP polling resumes when notifications are unavailable. One active session per user.
 CLI protocol support does not enable hosted access. Production listeners are not currently enabled.
+Hosted V2 requires a compatible server deployment; hosted V2 availability is not established.
+Existing V1-only services require explicit --protocol v1; there is no automatic downgrade.
 `;
 const stop = new AbortController();
 const cancel = () => stop.abort();
@@ -34,7 +41,7 @@ process.once("SIGTERM", cancel);
 try {
   const config = await configuration(process.argv.slice(2));
   if (config === "help") process.stdout.write(HELP);
-  else if (config === "version") process.stdout.write("0.1.0\n");
+  else if (config === "version") process.stdout.write("0.2.0\n");
   else if (config === "auth")
     process.stdout.write(
       "Use a scoped listener token for an enabled listener service. Set NTAPI_LISTENER_TOKEN for this process. The default scope is production at https://nottherealapi.com; Production listeners are not currently enabled. The CLI performs no browser login and stores nothing. One active listener session per user.\n",

@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import assert from "node:assert/strict";
 import { parseArgs } from "node:util";
 import { notificationSmoke } from "../test/notify-fixture.mjs";
+import { providerContract } from "../test/provider-contract.mjs";
 
 const npmCli = process.env.npm_execpath;
 if (!npmCli) throw new Error("Run via npm run pack:smoke");
@@ -46,6 +47,24 @@ try {
       /^(src|test|scripts|node_modules|\.github)\//.test(x.path),
     ),
   );
+  const contractFiles = new Set([
+    "docs/listener-protocol-v1.md",
+    "docs/listener-protocol-v2.md",
+    "docs/listener-notifications-v1.md",
+    "docs/security.md",
+    "docs/protocol-v1.schema.json",
+    "docs/protocol-v2.schema.json",
+    "docs/fixtures/v1.json",
+    "docs/fixtures/v2.json",
+  ]);
+  assert.deepEqual(
+    listing.files
+      .map((entry) => entry.path)
+      .filter((name) => name.startsWith("docs/"))
+      .sort(),
+    [...contractFiles].sort(),
+    "Ship only public contracts, security documentation and synthetic examples",
+  );
   const pkg = JSON.parse(
     await readFile(path.join(root, "package.json"), "utf8"),
   );
@@ -74,14 +93,28 @@ try {
   );
   assert.equal(metadata.bin.nottherealapi, "dist/cli.js");
   assert.equal(metadata.name, "@nottherealapi/cli");
-  assert.equal(metadata.version, "0.1.0");
+  assert.equal(metadata.version, "0.2.0");
   assert.equal(metadata.type, "module");
   assert.equal(metadata.license, "MIT");
   assert.equal(metadata.engines.node, ">=22.13.0");
   assert.equal(metadata.publishConfig.access, "public");
+  assert.deepEqual(Object.keys(metadata.dependencies).sort(), ["ws", "zod"]);
+  assert.equal(metadata.bundleDependencies, undefined);
+  assert.equal(metadata.bundledDependencies, undefined);
+  const runtime = JSON.parse(
+    npm(["ls", "--omit=dev", "--all", "--json"], directory),
+  );
+  assert.deepEqual(Object.keys(runtime.dependencies), [metadata.name]);
+  assert.deepEqual(
+    Object.keys(runtime.dependencies[metadata.name].dependencies).sort(),
+    ["ws", "zod"],
+    "Fresh consumers must not install provider SDKs or other dev dependencies",
+  );
   for (const name of ["preinstall", "install", "postinstall", "prepare"])
     assert.equal(metadata.scripts?.[name], undefined);
   const installed = path.join(directory, "node_modules/@nottherealapi/cli");
+  const archivePaths = new Set(listing.files.map((entry) => entry.path));
+  let localLinks = 0;
   for (const entry of listing.files) {
     const content = await readFile(path.join(installed, entry.path), "utf8");
     assert.doesNotMatch(
@@ -89,6 +122,34 @@ try {
       /-----BEGIN [A-Z ]*(?:PRIVATE KEY|CERTIFICATE)-----/,
     );
     assert.doesNotMatch(content, /sourceMappingURL=/);
+    assert.doesNotMatch(
+      content,
+      /(?:[A-Z]:[\\/](?:Users|home)[\\/]|\/(?:Users|home)\/)[^\s"'`<>]+/i,
+      `Local filesystem path in ${entry.path}`,
+    );
+    assert.doesNotMatch(
+      content,
+      /(?:saas[- ]v2[- ]handoff|server implementation handoff|preview acceptance|npm-release-readiness)/i,
+      `Private work orders or acceptance evidence in ${entry.path}`,
+    );
+    if (entry.path.endsWith(".md")) {
+      for (const match of content.matchAll(/!?\[[^\]]*\]\(([^\s)]+)\)/g)) {
+        const href = match[1];
+        if (/^https?:\/\//i.test(href) || href.startsWith("#")) continue;
+        assert.ok(!/^[a-z]+:|^[/\\]/i.test(href), `Non-public link: ${href}`);
+        const target = path.posix.normalize(
+          path.posix.join(
+            path.posix.dirname(entry.path),
+            decodeURIComponent(href.split(/[?#]/)[0]),
+          ),
+        );
+        assert.ok(
+          archivePaths.has(target),
+          `Broken link: ${entry.path} -> ${href}`,
+        );
+        localLinks++;
+      }
+    }
     if (entry.path.endsWith(".js"))
       assert.ok(
         listing.files.some(
@@ -97,19 +158,22 @@ try {
         `Missing declaration: ${entry.path}`,
       );
   }
+  console.log(
+    `Public archive contents and ${localLinks} relative Markdown links verified`,
+  );
   const imports = spawnSync(
     process.execPath,
     [
       "--input-type=module",
       "-e",
-      'import assert from "node:assert/strict"; import { listen, ProtocolClient } from "@nottherealapi/cli"; import { VERSION, claimSchema } from "@nottherealapi/cli/protocol"; assert.equal(typeof listen, "function"); assert.equal(typeof ProtocolClient, "function"); assert.equal(VERSION, "ntapi.listener.v1"); assert.equal(typeof claimSchema.parse, "function");',
+      'import assert from "node:assert/strict"; import { listen, ProtocolClient, v2 } from "@nottherealapi/cli"; import { VERSION, claimSchema } from "@nottherealapi/cli/protocol"; import * as contract from "@nottherealapi/cli/protocol-v2"; assert.equal(typeof listen, "function"); assert.equal(typeof ProtocolClient, "function"); assert.equal(VERSION, "ntapi.listener.v1"); assert.equal(typeof claimSchema.parse, "function"); assert.equal(v2.VERSION, "ntapi.listener.v2"); assert.equal(contract.claimSchema, v2.claimSchema);',
     ],
     { cwd: directory, encoding: "utf8", timeout: 10_000 },
   );
   assert.equal(imports.status, 0, imports.stderr || imports.stdout);
   await writeFile(
     path.join(directory, "consumer.mts"),
-    'import { listen, type Scope } from "@nottherealapi/cli"; import { VERSION } from "@nottherealapi/cli/protocol"; const scope: Scope = { module: "synthetic", environment: "production", destination: "0".repeat(64) }; void [listen, VERSION, scope];',
+    'import { listen, ProtocolClient, type Scope, type DeliveryClaim } from "@nottherealapi/cli"; import { VERSION } from "@nottherealapi/cli/protocol"; import { type Claim, claimSchema } from "@nottherealapi/cli/protocol-v2"; const scope: Scope = { module: "synthetic", environment: "production", destination: "0".repeat(64) }; const claim: Claim = claimSchema.parse({}); const delivery: DeliveryClaim = claim; const client = new ProtocolClient(new URL("https://example.test"), "synthetic", 100, "v2"); void [listen, VERSION, scope, delivery, client];',
   );
   const types = spawnSync(
     process.execPath,
@@ -130,7 +194,7 @@ try {
   assert.equal(types.status, 0, types.stderr || types.stdout);
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--version"], directory),
-    /^0\.1\.0\s*$/,
+    /^0\.2\.0\s*$/,
   );
   assert.match(
     npm(["exec", "--offline", "--", "nottherealapi", "--help"], directory),
@@ -145,6 +209,9 @@ try {
       path.join(directory, "node_modules/@nottherealapi/cli/dist/cli.js"),
       directory,
     ),
+  );
+  console.log(
+    await providerContract(path.join(installed, "dist/cli.js"), directory),
   );
   console.log(
     `Packed bin installed and executed: ${listing.files.length} files, ${listing.size} bytes (${process.platform}, ${process.version})`,

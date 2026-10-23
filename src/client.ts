@@ -1,17 +1,8 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { wireRequest, TransportError } from "./transport.js";
-import {
-  VERSION,
-  MAX_WIRE,
-  sessionSchema,
-  pollResponseSchema,
-  receiptSchema,
-  closedSchema,
-  errorSchema,
-  type Scope,
-  type Ack,
-} from "./protocol.js";
+import { MAX_WIRE, type Scope } from "./protocol.js";
+import { protocol, type ProtocolMode, type DeliveryAck } from "./protocols.js";
 import { SafeError } from "./config.js";
 
 export class ApiError extends SafeError {
@@ -44,22 +35,26 @@ export class ProtocolClient {
     readonly api: URL,
     private token: string,
     readonly timeoutMs: number,
+    readonly mode: ProtocolMode = "v1",
   ) {}
-  private async post<T>(
+  private get contract() {
+    return protocol(this.mode);
+  }
+  private async post<S extends z.ZodType>(
     path: string,
     body: unknown,
-    schema: z.ZodType<T>,
+    schema: S,
     signal: AbortSignal,
     timeout = this.timeoutMs,
-  ): Promise<T> {
+  ): Promise<z.output<S>> {
     const response = await wireRequest(
-      new URL(`/listener/v1/${path}`, this.api),
+      new URL(`/listener/${this.mode}/${path}`, this.api),
       "POST",
       {
         authorization: `Bearer ${this.token}`,
         "content-type": "application/json",
         accept: "application/json",
-        "x-ntapi-listener-version": VERSION,
+        "x-ntapi-listener-version": this.contract.VERSION,
       },
       Buffer.from(JSON.stringify(body)),
       timeout,
@@ -81,7 +76,7 @@ export class ProtocolClient {
       throw new SafeError("invalid_protocol_response");
     }
     if (response.status !== 200) {
-      const error = errorSchema.safeParse(data);
+      const error = this.contract.errorSchema.safeParse(data);
       if (!error.success) throw new SafeError("invalid_protocol_error");
       const allowed: Record<number, string[]> = {
         401: ["unauthorized"],
@@ -111,6 +106,7 @@ export class ProtocolClient {
     return parsed.data;
   }
   register(scope: Scope, sessionId: string, signal: AbortSignal) {
+    const { VERSION, sessionSchema } = this.contract;
     return this.post(
       "sessions",
       { version: VERSION, sessionId, scope },
@@ -119,6 +115,7 @@ export class ProtocolClient {
     );
   }
   poll(sessionId: string, waitMs: number, signal: AbortSignal) {
+    const { VERSION, pollResponseSchema } = this.contract;
     return this.post(
       `sessions/${sessionId}/claims`,
       { version: VERSION, waitMs },
@@ -126,7 +123,10 @@ export class ProtocolClient {
       signal,
     );
   }
-  ack(ack: Ack, signal: AbortSignal, timeout = this.timeoutMs) {
+  ack(ack: DeliveryAck, signal: AbortSignal, timeout = this.timeoutMs) {
+    const { receiptSchema, ackSchema } = this.contract;
+    if (!ackSchema.safeParse(ack).success)
+      throw new SafeError("protocol_mismatch");
     return this.post(
       `sessions/${ack.sessionId}/acks`,
       ack,
@@ -136,6 +136,7 @@ export class ProtocolClient {
     );
   }
   close(sessionId: string, signal: AbortSignal) {
+    const { VERSION, closedSchema } = this.contract;
     return this.post(
       `sessions/${sessionId}/close`,
       { version: VERSION },
