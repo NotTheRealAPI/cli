@@ -63,7 +63,7 @@
     "@hubspot/api-client": "^14.0.1",
     "@types/node": "^22.19.0",
     "@types/ws": "^8.18.2",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "openai": "^7.43.0",
     "prettier": "^3.6.2",
     "twilio": "^6.2.0",
