@@ -60,7 +60,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.0",
-    "@hubspot/api-client": "^14.0.1",
+    "@hubspot/api-client": "^14.1.2",
     "@types/node": "^22.19.0",
     "@types/ws": "^8.18.2",
     "eslint": "^10.13.0",
